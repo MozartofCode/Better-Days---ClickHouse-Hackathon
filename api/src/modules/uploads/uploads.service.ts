@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import { randomUUID } from "crypto";
 import { clickhouse } from "../../db/clickhouse";
 import { HttpError } from "../../utils/http-error";
+import { INVENTORY_FIELDS, mapInventoryColumns } from "./inventory-schema";
 
 interface ParsedSheet {
   columns: string[];
@@ -73,11 +74,17 @@ export async function createUpload(input: CreateUploadInput) {
     format: "JSONEachRow",
   });
 
+  const mapping = mapInventoryColumns(columns);
+  const matchedFields = INVENTORY_FIELDS.filter((f) => mapping[f.key]).map((f) => f.label);
+  const unmatchedFields = INVENTORY_FIELDS.filter((f) => !mapping[f.key]).map((f) => f.label);
+
   return {
     id: uploadId,
     filename: input.filename,
     columns,
     rowCount: rows.length,
+    matchedFields,
+    unmatchedFields,
   };
 }
 

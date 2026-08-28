@@ -3,22 +3,62 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
-import DropZone, { isAccepted, MAX_FILES } from "@/components/DropZone";
-import StepProgress from "@/components/StepProgress";
-import RecognitionScreen from "@/components/RecognitionScreen";
-import ConfirmMapping from "@/components/ConfirmMapping";
-import ResultsTabs from "@/components/ResultsTabs";
+import DropZone, { isAccepted } from "@/components/DropZone";
 import Button from "@/components/Button";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
-import { parseFiles } from "@/lib/parse";
-import { mapColumns, buildContract } from "@/lib/mapping";
-import { reconcile } from "@/lib/engines/reconcile";
-import { runChecks } from "@/lib/engines/quality";
-import { SAMPLE_CONTRACT } from "@/lib/mockData";
-import type { ColumnMapping, Contract, ParsedFile } from "@/lib/schema";
+import { parseFile, rowsToRecords } from "@/lib/parse";
+import {
+  INVENTORY_FIELDS,
+  SAMPLE_INVENTORY_ROWS,
+  classifyExpiry,
+  classifyStockStatus,
+  mapInventoryColumns,
+  normalizeInventoryRow,
+  type InventoryItem,
+} from "@/lib/inventorySchema";
 
-type Step = "upload" | "recognition" | "confirm" | "results";
+interface Inventory {
+  source: string;
+  uploadedAt: string | null;
+  items: InventoryItem[];
+  unmatchedFields: string[];
+}
+
+function summarize(items: InventoryItem[]) {
+  let expiringSoon = 0;
+  let expired = 0;
+  let lowStock = 0;
+  let outOfStock = 0;
+  const categoryCounts = new Map<string, number>();
+
+  for (const item of items) {
+    const expiry = classifyExpiry(item.expirationDate);
+    if (expiry === "expired") expired++;
+    if (expiry === "soon") expiringSoon++;
+
+    const status = classifyStockStatus(item.restockingStatus);
+    if (status === "low") lowStock++;
+    if (status === "out") outOfStock++;
+
+    const category = item.category ?? "Uncategorized";
+    categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1);
+  }
+
+  const categories = [...categoryCounts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return { totalItems: items.length, expiringSoon, expired, lowStock, outOfStock, categories };
+}
+
+function fromFile(name: string, headers: string[], rows: string[][]): Inventory {
+  const mapping = mapInventoryColumns(headers);
+  const records = rowsToRecords(headers, rows);
+  const items = records.map((r) => normalizeInventoryRow(r, mapping));
+  const unmatchedFields = INVENTORY_FIELDS.filter((f) => !mapping[f.key]).map((f) => f.label);
+  return { source: name, uploadedAt: null, items, unmatchedFields };
+}
 
 export default function DashboardPage() {
   const { user, ready } = useAuth();
@@ -28,11 +68,9 @@ export default function DashboardPage() {
     if (ready && !user) router.replace("/signin");
   }, [ready, user, router]);
 
-  const [step, setStep] = useState<Step>("upload");
-  const [parsedFiles, setParsedFiles] = useState<ParsedFile[]>([]);
-  const [mappings, setMappings] = useState<ColumnMapping[]>([]);
-  const [lbPerCase, setLbPerCase] = useState(30);
-  const [contract, setContract] = useState<Contract | null>(null);
+  const [inventory, setInventory] = useState<Inventory | null>(null);
+  const [loadingExisting, setLoadingExisting] = useState(true);
+  const [showUpload, setShowUpload] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -42,144 +80,110 @@ export default function DashboardPage() {
     if (!user) return;
     api
       .dashboardSummary()
-      .then((summary) => setRecentUploads(summary.recentUploads))
+      .then(async (summary) => {
+        setRecentUploads(summary.recentUploads);
+        if (!summary.currentInventory) return;
+        const detail = await api.uploadDetail(summary.currentInventory.fromUpload.id);
+        const mapping = mapInventoryColumns(detail.upload.columns);
+        setInventory((prev) =>
+          prev ?? {
+            source: detail.upload.filename,
+            uploadedAt: detail.upload.uploaded_at,
+            items: detail.items,
+            unmatchedFields: INVENTORY_FIELDS.filter((f) => !mapping[f.key]).map((f) => f.label),
+          }
+        );
+      })
       .catch(() => {
         // Dashboard history is a nice-to-have; don't block the upload flow if the API is down.
-      });
+      })
+      .finally(() => setLoadingExisting(false));
   }, [user]);
-
-  const needsCaseInput = mappings.some((m) => m.unitHint === "cases");
 
   async function handleFiles(files: File[]) {
     setUploadError(null);
     setUploadWarning(null);
 
-    if (files.length === 0) return;
+    const file = files[0];
+    if (!file) return;
 
-    const rejected = files.filter((f) => !isAccepted(f));
-    if (rejected.length > 0) {
-      setUploadError(
-        `${rejected.map((f) => f.name).join(", ")} isn't a supported file type. Please upload .xlsx or .csv files only.`
-      );
-      return;
-    }
-    if (files.length > MAX_FILES) {
-      setUploadError(`Please upload up to ${MAX_FILES} files at a time.`);
+    if (!isAccepted(file)) {
+      setUploadError(`${file.name} isn't a supported file type. Please upload an .xlsx or .csv file.`);
       return;
     }
 
     setProcessing(true);
     try {
-      const parsed = await parseFiles(files);
-      const newMappings = parsed.map(mapColumns);
-      setParsedFiles(parsed);
-      setMappings(newMappings);
-      setStep("recognition");
+      const parsed = await parseFile(file);
+      setInventory(fromFile(parsed.name, parsed.headers, parsed.rows));
+      setShowUpload(false);
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "We couldn't read one of those files. Please check the format and try again.");
+      setUploadError(err instanceof Error ? err.message : "We couldn't read that file. Please check the format and try again.");
       setProcessing(false);
       return;
     }
     setProcessing(false);
 
-    const failures: string[] = [];
-    for (const file of files) {
-      try {
-        const saved = await api.uploadFile(file);
-        setRecentUploads((prev) => [{ id: saved.id, filename: saved.filename, row_count: saved.rowCount, uploaded_at: new Date().toISOString() }, ...prev]);
-      } catch {
-        failures.push(file.name);
-      }
-    }
-    if (failures.length > 0) {
-      setUploadWarning(`We reconciled your files, but couldn't save ${failures.join(", ")} to your account. You can still view your results below.`);
+    try {
+      const saved = await api.uploadFile(file);
+      setRecentUploads((prev) => [{ id: saved.id, filename: saved.filename, row_count: saved.rowCount, uploaded_at: new Date().toISOString() }, ...prev]);
+    } catch {
+      setUploadWarning(`We read your file, but couldn't save it to your account. You can still view your inventory below.`);
     }
   }
 
   function handleUseSample() {
-    setContract(SAMPLE_CONTRACT);
-    setStep("results");
-  }
-
-  function handleConfirmMapping(finalMappings: ColumnMapping[]) {
-    const inputs = parsedFiles.map((file, i) => ({ file, mapping: finalMappings[i], lbPerCase }));
-    const built = buildContract(inputs);
-    setContract(built);
-    setStep("results");
-  }
-
-  function startOver() {
-    setStep("upload");
-    setParsedFiles([]);
-    setMappings([]);
-    setContract(null);
     setUploadError(null);
+    setUploadWarning(null);
+    setInventory(fromFile("sample_inventory.xlsx", SAMPLE_INVENTORY_ROWS.headers, SAMPLE_INVENTORY_ROWS.rows));
+    setShowUpload(false);
   }
 
-  const variances = useMemo(() => (contract ? reconcile(contract) : []), [contract]);
-  const exceptions = useMemo(() => (contract ? runChecks(contract) : []), [contract]);
+  const stats = useMemo(() => (inventory ? summarize(inventory.items) : null), [inventory]);
 
-  // Preview built from the automatic mapping, purely to populate the
-  // recognition screen's date range / sites before the user confirms anything.
-  const previewContract = useMemo(() => {
-    if (parsedFiles.length === 0) return null;
-    const inputs = parsedFiles.map((file, i) => ({ file, mapping: mappings[i], lbPerCase }));
-    return buildContract(inputs);
-  }, [parsedFiles, mappings, lbPerCase]);
-
-  if (!ready || !user) {
+  if (!ready || !user || loadingExisting) {
     return <div className="min-h-screen bg-(--color-bg)" />;
   }
 
-  const stepNumber = { upload: 1, recognition: 2, confirm: 3, results: 4 }[step];
+  const showingUpload = showUpload || !inventory;
 
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10">
-        <div className="mb-10">
-          <StepProgress current={stepNumber} />
-        </div>
-
-        {step === "upload" && (
+      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
+        {showingUpload ? (
           <div>
             <div className="text-center">
-              <h1 className="text-2xl font-semibold text-(--color-text)">Upload your files</h1>
+              <h1 className="text-2xl font-semibold text-(--color-text)">Upload your inventory</h1>
               <p className="mt-2 text-(--color-text-muted)">
-                Bring the spreadsheets you already have. We&apos;ll take it from here.
+                Bring the spreadsheet you already have. Missing a column or two? No problem.
               </p>
             </div>
 
-            <div className="mt-8">
+            <div className="mx-auto mt-8 max-w-xl">
               <DropZone onFiles={handleFiles} onUseSample={handleUseSample} error={uploadError} />
             </div>
 
-            {processing && <p className="mt-4 text-center text-sm text-(--color-text-muted)">Reading your files…</p>}
-            {uploadWarning && (
-              <p className="mt-4 text-center text-sm text-(--color-error)">{uploadWarning}</p>
-            )}
+            {processing && <p className="mt-4 text-center text-sm text-(--color-text-muted)">Reading your file…</p>}
 
-            <div className="mt-10 rounded-2xl border border-(--color-border) bg-(--color-surface) p-6">
-              <h2 className="text-sm font-semibold text-(--color-text)">What happens after you upload</h2>
-              <ol className="mt-3 space-y-2 text-sm text-(--color-text-muted)">
-                <li>1. We read your files and create your reconciliation right here in the browser.</li>
-                <li>2. We check the data for quality issues.</li>
-                <li>3. Your files are saved to {user.foodBankName}&apos;s account so your team can see them later.</li>
-              </ol>
-            </div>
-
-            <div className="mt-4 rounded-2xl bg-(--color-primary-soft) p-6">
-              <h2 className="text-sm font-semibold text-(--color-primary)">Your data, scoped to your food bank</h2>
-              <ul className="mt-3 space-y-1.5 text-sm text-(--color-text)">
-                <li>• Uploaded files are saved to your account so you can revisit them later.</li>
-                <li>• Only your food bank&apos;s staff can see your uploads — never other organizations.</li>
-                <li>• Reconciliation and quality checks run locally in your browser before anything is sent.</li>
+            <div className="mx-auto mt-10 max-w-xl rounded-2xl border border-(--color-border) bg-(--color-surface) p-6">
+              <h2 className="text-sm font-semibold text-(--color-text)">What we look for</h2>
+              <p className="mt-2 text-sm text-(--color-text-muted)">
+                We match your columns to these fields automatically. Anything we can&apos;t find just shows as
+                empty — it won&apos;t stop your upload.
+              </p>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {INVENTORY_FIELDS.map((f) => (
+                  <li key={f.key} className="rounded-full bg-(--color-primary-soft) px-3 py-1 text-xs font-medium text-(--color-primary)">
+                    {f.label}
+                  </li>
+                ))}
               </ul>
             </div>
 
             {recentUploads.length > 0 && (
-              <div className="mt-4 rounded-2xl border border-(--color-border) bg-(--color-surface) p-6">
+              <div className="mx-auto mt-4 max-w-xl rounded-2xl border border-(--color-border) bg-(--color-surface) p-6">
                 <h2 className="text-sm font-semibold text-(--color-text)">Recent uploads</h2>
                 <ul className="mt-3 space-y-2 text-sm text-(--color-text-muted)">
                   {recentUploads.slice(0, 5).map((u) => (
@@ -192,55 +196,133 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        )}
-
-        {step === "recognition" && (
-          <RecognitionScreen
-            files={parsedFiles}
-            mappings={mappings}
-            dateRange={previewContract?.meta.dateRange ?? { start: null, end: null }}
-            sites={previewContract?.meta.sites ?? []}
-            onContinue={() => setStep("confirm")}
-          />
-        )}
-
-        {step === "confirm" && (
-          <div>
-            <ConfirmMapping
-              files={parsedFiles}
-              mappings={mappings}
-              onBack={() => setStep("recognition")}
-              onConfirm={handleConfirmMapping}
-            />
-            {needsCaseInput && (
-              <div className="mx-auto mt-6 max-w-sm rounded-2xl border border-(--color-border) bg-(--color-surface) p-5 text-center">
-                <label className="block text-sm font-medium text-(--color-text)">
-                  One of your files uses cases instead of pounds. How many pounds per case?
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={lbPerCase}
-                  onChange={(e) => setLbPerCase(Number(e.target.value) || 30)}
-                  className="mt-2 w-32 rounded-xl border border-(--color-border) bg-(--color-surface) px-3 py-2 text-center text-sm outline-none focus:border-(--color-primary)"
-                />
+        ) : (
+          inventory &&
+          stats && (
+            <div>
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-2xl font-semibold text-(--color-text)">Your inventory</h1>
+                  <p className="text-sm text-(--color-text-muted)">From {inventory.source}</p>
+                </div>
+                <Button variant="ghost" onClick={() => setShowUpload(true)}>
+                  Upload a different file
+                </Button>
               </div>
-            )}
-          </div>
-        )}
 
-        {step === "results" && contract && (
-          <div>
-            <div className="mb-6 flex items-center justify-between">
-              <h1 className="text-2xl font-semibold text-(--color-text)">Your results</h1>
-              <Button variant="ghost" onClick={startOver}>
-                Upload different files
-              </Button>
+              {uploadWarning && (
+                <p className="mb-4 rounded-lg bg-(--color-error-soft) px-4 py-3 text-sm text-(--color-error)">{uploadWarning}</p>
+              )}
+
+              {inventory.unmatchedFields.length > 0 && (
+                <p className="mb-4 rounded-lg bg-(--color-primary-soft) px-4 py-3 text-sm text-(--color-primary)">
+                  We couldn&apos;t find a column for: {inventory.unmatchedFields.join(", ")}. Those will show as
+                  &ldquo;—&rdquo; below.
+                </p>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <StatTile label="Total items" value={stats.totalItems} />
+                <StatTile label="Expiring soon" value={stats.expiringSoon} tone={stats.expiringSoon > 0 ? "warn" : "default"} />
+                <StatTile label="Low stock" value={stats.lowStock} tone={stats.lowStock > 0 ? "warn" : "default"} />
+                <StatTile label="Out of stock" value={stats.outOfStock} tone={stats.outOfStock > 0 ? "error" : "default"} />
+              </div>
+
+              {stats.categories.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {stats.categories.map((c) => (
+                    <span key={c.name} className="rounded-full border border-(--color-border) bg-(--color-surface) px-3 py-1 text-xs text-(--color-text-muted)">
+                      {c.name} · {c.count}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-6 overflow-x-auto rounded-2xl border border-(--color-border) bg-(--color-surface)">
+                <table className="w-full min-w-[900px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-(--color-border) text-xs uppercase text-(--color-text-muted)">
+                      <th className="px-4 py-3 font-medium">Item</th>
+                      <th className="px-4 py-3 font-medium">Category</th>
+                      <th className="px-4 py-3 font-medium">Quantity</th>
+                      <th className="px-4 py-3 font-medium">Expiration</th>
+                      <th className="px-4 py-3 font-medium">Location</th>
+                      <th className="px-4 py-3 font-medium">Source</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 font-medium">Responsible</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventory.items.map((item, i) => (
+                      <tr key={i} className="border-b border-(--color-border) last:border-0">
+                        <Cell value={item.itemName} />
+                        <Cell value={item.category} />
+                        <Cell value={item.quantity !== null ? `${item.quantity}${item.unit ? ` ${item.unit}` : ""}` : null} />
+                        <ExpiryCell value={item.expirationDate} />
+                        <Cell value={item.storageLocation} />
+                        <Cell value={item.source} />
+                        <StatusCell value={item.restockingStatus} />
+                        <Cell value={item.personResponsible} />
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <ResultsTabs contract={contract} variances={variances} exceptions={exceptions} />
-          </div>
+          )
         )}
       </main>
     </div>
+  );
+}
+
+function StatTile({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "warn" | "error" }) {
+  const toneClass =
+    tone === "error" ? "text-(--color-error)" : tone === "warn" ? "text-(--color-primary)" : "text-(--color-text)";
+  return (
+    <div className="rounded-2xl border border-(--color-border) bg-(--color-surface) p-4">
+      <p className="text-xs font-medium uppercase text-(--color-text-muted)">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold ${toneClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function Cell({ value }: { value: string | null }) {
+  return <td className="px-4 py-3 text-(--color-text)">{value ?? <span className="text-(--color-text-muted)">—</span>}</td>;
+}
+
+function ExpiryCell({ value }: { value: string | null }) {
+  const status = classifyExpiry(value);
+  if (!value) return <Cell value={null} />;
+  const badge =
+    status === "expired"
+      ? "bg-(--color-error-soft) text-(--color-error)"
+      : status === "soon"
+        ? "bg-(--color-primary-soft) text-(--color-primary)"
+        : "text-(--color-text)";
+  return (
+    <td className="px-4 py-3">
+      <span className={status !== "ok" && status !== "unknown" ? `rounded-full px-2 py-0.5 text-xs font-medium ${badge}` : "text-(--color-text)"}>
+        {value}
+      </span>
+    </td>
+  );
+}
+
+function StatusCell({ value }: { value: string | null }) {
+  const status = classifyStockStatus(value);
+  if (!value) return <Cell value={null} />;
+  const badge =
+    status === "out"
+      ? "bg-(--color-error-soft) text-(--color-error)"
+      : status === "low"
+        ? "bg-(--color-primary-soft) text-(--color-primary)"
+        : "text-(--color-text)";
+  return (
+    <td className="px-4 py-3">
+      <span className={status === "out" || status === "low" ? `rounded-full px-2 py-0.5 text-xs font-medium ${badge}` : "text-(--color-text)"}>
+        {value}
+      </span>
+    </td>
   );
 }

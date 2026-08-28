@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import Button from "./Button";
 
 const ACCEPTED_EXTENSIONS = [".xlsx", ".xls", ".csv"];
-const MAX_FILES = 3;
+const MAX_FILES = 1;
 
 interface Props {
   onFiles: (files: File[]) => void;
@@ -73,8 +73,8 @@ export default function DropZone({ onFiles, onUseSample, error }: Props) {
             />
           </svg>
         </div>
-        <p className="text-lg font-medium text-(--color-text)">Drag and drop your files here</p>
-        <p className="mt-1 text-sm text-(--color-text-muted)">.xlsx or .csv — up to 3 files</p>
+        <p className="text-lg font-medium text-(--color-text)">Drag and drop your file here</p>
+        <p className="mt-1 text-sm text-(--color-text-muted)">.xlsx or .csv</p>
         <Button
           variant="secondary"
           className="mt-5"
@@ -88,7 +88,6 @@ export default function DropZone({ onFiles, onUseSample, error }: Props) {
         <input
           ref={inputRef}
           type="file"
-          multiple
           accept=".xlsx,.xls,.csv"
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}

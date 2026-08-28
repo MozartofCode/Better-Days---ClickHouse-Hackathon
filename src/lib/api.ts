@@ -1,5 +1,7 @@
 // Thin client for the real backend in api/ (see api/README.md for the full contract).
 
+import type { InventoryItem } from "./inventorySchema";
+
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 const TOKEN_KEY = "pana_token";
@@ -79,7 +81,14 @@ export const api = {
   uploadFile(file: File) {
     const form = new FormData();
     form.append("file", file);
-    return request<{ id: string; filename: string; columns: string[]; rowCount: number }>("/api/uploads", {
+    return request<{
+      id: string;
+      filename: string;
+      columns: string[];
+      rowCount: number;
+      matchedFields: string[];
+      unmatchedFields: string[];
+    }>("/api/uploads", {
       method: "POST",
       body: form,
     });
@@ -90,6 +99,21 @@ export const api = {
       totalRows: number;
       lastUploadAt: string | null;
       recentUploads: { id: string; filename: string; row_count: number; uploaded_at: string }[];
+      currentInventory: {
+        fromUpload: { id: string; filename: string; uploadedAt: string };
+        totalItems: number;
+        expiringSoon: number;
+        expired: number;
+        lowStock: number;
+        outOfStock: number;
+        categories: { name: string; count: number }[];
+      } | null;
     }>("/api/dashboard/summary");
+  },
+  uploadDetail(id: string) {
+    return request<{
+      upload: { id: string; filename: string; columns: string[]; row_count: number; uploaded_at: string };
+      items: (InventoryItem & { rowNumber: number })[];
+    }>(`/api/dashboard/uploads/${id}?pageSize=500`);
   },
 };

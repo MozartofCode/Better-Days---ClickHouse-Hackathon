@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pana — Upload once, get your reconciliation",
-  description: "Upload your pantry spreadsheets and get a reconciliation, a data-quality check, and a report packet — every number traces back to your source rows.",
+  title: "Pana — Food pantry inventory, organized",
+  description: "Upload your pantry inventory spreadsheet and get an organized dashboard with expiration tracking and stock status — even if your file is missing fields.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

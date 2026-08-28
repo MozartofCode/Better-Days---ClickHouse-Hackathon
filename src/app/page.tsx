@@ -26,12 +26,12 @@ export default function LandingPage() {
           </span>
 
           <h1 className="text-4xl font-semibold leading-tight tracking-tight text-(--color-text) sm:text-5xl">
-            Upload your spreadsheets. Get your reconciliation, your data check, and your report.
+            Upload your inventory spreadsheet. Get an organized dashboard — even if it&apos;s messy.
           </h1>
 
           <p className="mx-auto mt-6 max-w-xl text-lg text-(--color-text-muted)">
-            Pana reads the files you already have, checks them for problems, and puts your monthly
-            report together — with every number traced back to the row it came from.
+            Pana reads the inventory sheet you already keep, matches your columns automatically, and
+            shows you what&apos;s expiring soon, what&apos;s low, and what&apos;s out — missing fields and all.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -51,16 +51,16 @@ export default function LandingPage() {
         <div className="mt-20 grid w-full max-w-4xl gap-6 sm:grid-cols-3">
           {[
             {
-              title: "Reconcile",
-              body: "See expected vs. counted inventory per commodity, with anything unusual flagged for review.",
+              title: "Auto-matched columns",
+              body: "Item name, category, quantity, expiration date, and more — matched to your headers automatically.",
             },
             {
-              title: "Data Quality",
-              body: "Catch duplicate records, bad dates, and missing fields before an auditor does.",
+              title: "Works with gaps",
+              body: "Missing a column or a few cells? Those just show as empty. Nothing blocks your upload.",
             },
             {
-              title: "Report",
-              body: "Get a report packet ready to share, with every figure traceable to its source rows.",
+              title: "Saved to your account",
+              body: "Your food bank's uploads are private to your team and there whenever you sign back in.",
             },
           ].map((f) => (
             <div key={f.title} className="rounded-2xl border border-(--color-border) bg-(--color-surface) p-6 text-left">
@@ -71,13 +71,13 @@ export default function LandingPage() {
         </div>
 
         <p className="mt-16 max-w-xl text-sm text-(--color-text-muted)">
-          Nothing you upload leaves your browser except column headers and computed totals.
-          Every calculation is done by ordinary code, never guessed — nothing is invented.
+          Column matching runs in your browser before anything is sent — only your food bank&apos;s
+          staff can ever see what you upload.
         </p>
       </main>
 
       <footer className="border-t border-(--color-border) py-6 text-center text-sm text-(--color-text-muted)">
-        Pana — upload once, get your week back.
+        Pana — upload your inventory, see it clearly.
       </footer>
     </div>
   );

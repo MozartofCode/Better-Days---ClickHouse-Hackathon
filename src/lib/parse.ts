@@ -1,21 +1,11 @@
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import type { FileKind, ParsedFile } from "./schema";
 
-const INVENTORY_HINTS = ["beginning", "received", "distributed", "transferred", "loss", "commodity", "lot", "physical", "count"];
-const VISIT_HINTS = ["household id", "householdid", "visit", "poundslb", "pounds", "program", "tefap", "site"];
-const HOUSEHOLD_HINTS = ["name", "address", "household size", "size"];
-
-function guessKind(headers: string[]): FileKind {
-  const joined = headers.join(" | ").toLowerCase();
-  const score = (hints: string[]) => hints.reduce((n, h) => (joined.includes(h) ? n + 1 : n), 0);
-  const inv = score(INVENTORY_HINTS);
-  const vis = score(VISIT_HINTS);
-  const hh = score(HOUSEHOLD_HINTS);
-  if (inv === 0 && vis === 0 && hh === 0) return "unknown";
-  if (inv >= vis && inv >= hh) return "inventory";
-  if (vis >= hh) return "visits";
-  return "households";
+export interface ParsedFile {
+  name: string;
+  headers: string[];
+  rows: string[][];
+  rowCount: number;
 }
 
 function findHeaderRow(rows: string[][]): number {
@@ -69,18 +59,18 @@ export async function parseFile(file: File): Promise<ParsedFile> {
   } else if (lower.endsWith(".csv")) {
     ({ headers, rows } = await parseCsv(file));
   } else {
-    throw new Error(`Unsupported file type: ${file.name}. Please upload .xlsx or .csv files.`);
+    throw new Error(`Unsupported file type: ${file.name}. Please upload an .xlsx or .csv file.`);
   }
 
-  return {
-    name: file.name,
-    headers,
-    rows,
-    kind: guessKind(headers),
-    rowCount: rows.length,
-  };
+  return { name: file.name, headers, rows, rowCount: rows.length };
 }
 
-export async function parseFiles(files: File[]): Promise<ParsedFile[]> {
-  return Promise.all(files.map(parseFile));
+export function rowsToRecords(headers: string[], rows: string[][]): Record<string, string>[] {
+  return rows.map((row) => {
+    const record: Record<string, string> = {};
+    headers.forEach((h, i) => {
+      record[h] = row[i] ?? "";
+    });
+    return record;
+  });
 }
