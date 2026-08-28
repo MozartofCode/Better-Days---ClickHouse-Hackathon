@@ -648,6 +648,8 @@ export default function OperationsDashboardPage() {
           </div>
         )}
 
+        <LogOperationsData onCreated={load} />
+
         {Object.entries(reportIssues).map(
           ([templateId, issues]) =>
             issues.length > 0 && (
