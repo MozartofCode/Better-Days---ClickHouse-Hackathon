@@ -144,9 +144,13 @@ Bank served?") and get answers pulled live from ClickHouse, via LibreChat's **Ac
 **Known limitation (v1):** Actions in LibreChat authenticate as themselves, not as a specific
 logged-in staff member — there's no per-user JWT inside an action call. So this uses a single
 **shared service API key** instead, and the LLM scopes each query by food bank *name* (pulled
-from the conversation), not from a logged-in session. Good enough to demo and use today; a
-future upgrade would add per-user OAuth so LibreChat acts on behalf of the actual logged-in user
-and auto-scopes to their food bank.
+from the conversation), not from a logged-in session. Good enough to demo and use today.
+
+**This has since been superseded by a real per-user OAuth solution** — see `modules/mcp/` and
+`modules/oauth/`, and [`../README_START.md`](../README_START.md) for setup. The MCP server derives
+`foodBankId` from the signed-in user's own token, never a client-supplied name, and works with
+Claude and ChatGPT as well as LibreChat. This `actions/` module is kept running only as a fallback
+until LibreChat is cut over to talking MCP directly.
 
 **Setup:**
 1. Generate a secret and put it in `.env` as `LIBRECHAT_SERVICE_API_KEY` (already done if you

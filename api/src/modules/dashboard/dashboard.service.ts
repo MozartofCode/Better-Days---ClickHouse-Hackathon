@@ -144,3 +144,42 @@ export async function getUploadRows(
 
   return { upload, rows, items, page, pageSize };
 }
+
+/**
+ * Corrects specific fields of one uploaded row. Merges `patch` into the
+ * row's existing `data` map (via ClickHouse's mapUpdate) rather than
+ * replacing it wholesale, so a caller only needs to send the fields being
+ * corrected. ClickHouse ALTER TABLE ... UPDATE is an async mutation — the
+ * change is queued, not applied synchronously.
+ */
+export async function correctUploadRow(
+  foodBankId: string,
+  uploadId: string,
+  rowNumber: number,
+  patch: Record<string, string>
+) {
+  const existing = await clickhouse.query({
+    query: `
+      SELECT row_number FROM upload_rows
+      WHERE food_bank_id = {foodBankId:UUID} AND upload_id = {uploadId:UUID} AND row_number = {rowNumber:UInt32}
+      LIMIT 1
+    `,
+    query_params: { foodBankId, uploadId, rowNumber },
+    format: "JSONEachRow",
+  });
+  const [row] = await existing.json<{ row_number: number }>();
+  if (!row) {
+    throw new HttpError(404, "Upload row not found");
+  }
+
+  await clickhouse.command({
+    query: `
+      ALTER TABLE upload_rows
+      UPDATE data = mapUpdate(data, {patch:Map(String, String)})
+      WHERE food_bank_id = {foodBankId:UUID} AND upload_id = {uploadId:UUID} AND row_number = {rowNumber:UInt32}
+    `,
+    query_params: { foodBankId, uploadId, rowNumber, patch },
+  });
+
+  return { queued: true, uploadId, rowNumber };
+}

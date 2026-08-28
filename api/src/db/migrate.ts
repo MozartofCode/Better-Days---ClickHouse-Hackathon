@@ -3,7 +3,14 @@ import path from "path";
 import { pgPool } from "./postgres";
 import { clickhouse } from "./clickhouse";
 
-const POSTGRES_MIGRATIONS = ["001_postgres_init.sql", "002_postgres_community_data.sql"];
+const POSTGRES_MIGRATIONS = [
+  "001_postgres_init.sql",
+  "002_postgres_community_data.sql",
+  "003_postgres_operations_schema.sql",
+  "004_mcp_oauth_schema.sql",
+  "005_postgres_org_setup.sql",
+  "006_postgres_generated_reports.sql",
+];
 const CLICKHOUSE_MIGRATIONS = [
   "001_clickhouse_init.sql",
   "002_clickhouse_community_data.sql",

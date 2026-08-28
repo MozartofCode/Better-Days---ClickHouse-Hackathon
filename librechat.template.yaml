@@ -1,0 +1,37 @@
+version: 1.3.13
+
+# This is a TEMPLATE — docker-compose runs librechat-render-config.js at
+# container start to substitute the placeholders below into a real
+# librechat.yaml. LibreChat's own built-in placeholder resolution does not
+# cover mcpServers.*.url/oauth.* in the currently published image, so we
+# render this file ourselves instead of relying on that (see
+# librechat-render-config.js for why).
+#
+# PANA_MCP_URL / PANA_AUTHORIZE_URL / PANA_TOKEN_URL / PANA_REDIRECT_URI let
+# this same file work unchanged in local dev and in production — they're
+# assembled in docker-compose.yml from PANA_API_PUBLIC_URL /
+# PANA_LIBRECHAT_PUBLIC_URL. See README_START.md "LibreChat in production"
+# for what to set those to when deploying.
+#
+# allowedAddresses below only matters for local dev: the api is only
+# reachable from the librechat container at the host's loopback address
+# (docker-compose's `extra_hosts: localhost:host-gateway` on the librechat
+# service), which LibreChat's SSRF protection blocks by default unless
+# explicitly allowed. A real public HTTPS URL in production needs no entry
+# here — LibreChat's default policy already allows public domains.
+mcpSettings:
+  allowedAddresses:
+    - "localhost:4000"
+
+mcpServers:
+  pana-food-bank:
+    type: streamable-http
+    url: ${PANA_MCP_URL}
+    requiresOAuth: true
+    oauth:
+      authorization_url: ${PANA_AUTHORIZE_URL}
+      token_url: ${PANA_TOKEN_URL}
+      client_id: ${PANA_MCP_CLIENT_ID}
+      client_secret: ${PANA_MCP_CLIENT_SECRET}
+      redirect_uri: ${PANA_REDIRECT_URI}
+      scope: 'mcp:read mcp:write'

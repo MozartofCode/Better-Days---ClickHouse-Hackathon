@@ -204,6 +204,12 @@ Same as local (see [`api/README.md`](api/README.md#librechat-integration)), exce
 - In `api/openapi/librechat-actions.yaml`, change `servers.url` from `http://localhost:4000/api/actions`
   to your Railway API's public URL + `/api/actions`.
 - Set the Action's API key to the `LIBRECHAT_SERVICE_API_KEY` you put on the Railway API service.
+## MCP + OAuth (agentic chat integration)
+
+Claude, ChatGPT, and LibreChat can query/update a signed-in user's own food bank data through an
+MCP server with self-hosted OAuth. **Read [`README_START.md`](README_START.md) before deploying**
+— it covers the env vars and one-time setup steps this needs beyond what's above. In the app
+itself, see the "Connect AI chat" page (`/settings/mcp`) for the end-user instructions.
 
 ## Stack
 - **Frontend**: Next.js (App Router), React, Tailwind — client-side spreadsheet parsing,

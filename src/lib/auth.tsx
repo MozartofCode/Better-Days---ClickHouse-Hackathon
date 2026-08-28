@@ -13,6 +13,7 @@ interface AuthContextValue {
   ready: boolean;
   signUp: (input: { email: string; password: string; firstName: string; lastName: string; role: "admin" | "staff"; foodBankName: string }) => Promise<AuthResult>;
   signIn: (email: string, password: string) => Promise<AuthResult>;
+  acceptInvite: (token: string, input: { firstName: string; lastName: string; password: string }) => Promise<AuthResult>;
   signOut: () => void;
 }
 
@@ -63,12 +64,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const acceptInvite = useCallback(async (token: string, input: { firstName: string; lastName: string; password: string }): Promise<AuthResult> => {
+    try {
+      const { token: authToken, user } = await api.acceptInvite(token, input);
+      setToken(authToken);
+      setUser(user);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: errorMessage(err) };
+    }
+  }, []);
+
   const signOut = useCallback(() => {
     clearToken();
     setUser(null);
   }, []);
 
-  const value = useMemo(() => ({ user, ready, signUp, signIn, signOut }), [user, ready, signUp, signIn, signOut]);
+  const value = useMemo(() => ({ user, ready, signUp, signIn, acceptInvite, signOut }), [user, ready, signUp, signIn, acceptInvite, signOut]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
