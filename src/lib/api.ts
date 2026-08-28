@@ -117,4 +117,112 @@ export const api = {
       items: (InventoryItem & { rowNumber: number })[];
     }>(`/api/dashboard/uploads/${id}?pageSize=500`);
   },
+  getOrgProfile() {
+    return request<OrgProfile>("/api/org/profile");
+  },
+  updateOrgProfile(patch: { address?: string; primaryContact?: string; timezone?: string }) {
+    return request<OrgProfile["organization"]>("/api/org/profile", {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+  },
+  searchFoodBank(query: string) {
+    return request<FoodBankCandidate[]>("/api/org/food-bank-search", {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    });
+  },
+  linkFoodBank(slug: string) {
+    return request<OrgProfile>("/api/org/food-bank-link", {
+      method: "POST",
+      body: JSON.stringify({ slug }),
+    });
+  },
+  listMembers() {
+    return request<OrgMember[]>("/api/org/members");
+  },
+  listInvites() {
+    return request<OrgInvite[]>("/api/org/invites");
+  },
+  createInvite(email: string, role: "admin" | "staff") {
+    return request<OrgInvite>("/api/org/invites", {
+      method: "POST",
+      body: JSON.stringify({ email, role }),
+    });
+  },
+  revokeInvite(id: string) {
+    return request<void>(`/api/org/invites/${id}`, { method: "DELETE" });
+  },
+  getInviteByToken(token: string) {
+    return request<InviteLookup>(`/api/org/invites/${token}`);
+  },
+  acceptInvite(token: string, input: { firstName: string; lastName: string; password: string }) {
+    return request<{ token: string; user: ApiUser }>(`/api/org/invites/${token}/accept`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
 };
+
+export interface OrgProfile {
+  organization: {
+    organizationId: string;
+    organizationName: string;
+    organizationType: string | null;
+    timezone: string;
+    address: string | null;
+    reportingCurrency: string;
+    primaryContact: string | null;
+    activeStatus: boolean;
+  };
+  profileSetupCompleted: boolean;
+  feedingAmerica: {
+    slug: string;
+    name: string;
+    website: string | null;
+    phone: string | null;
+    mealsProvided: number | null;
+    poundsDistributed: number | null;
+    countiesServed: string[];
+  } | null;
+}
+
+export interface FoodBankCandidate {
+  name: string;
+  slug: string;
+  profile_url?: string;
+  website?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  phone?: string;
+  address?: string;
+  counties_served?: string[];
+  matchReason: string;
+}
+
+export interface OrgMember {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: "admin" | "staff";
+  createdAt: string;
+}
+
+export interface OrgInvite {
+  id: string;
+  email: string;
+  role: "admin" | "staff";
+  token: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface InviteLookup {
+  id: string;
+  foodBankId: string;
+  foodBankName: string;
+  email: string;
+  role: "admin" | "staff";
+}

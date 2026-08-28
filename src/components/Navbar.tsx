@@ -23,6 +23,9 @@ export default function Navbar() {
         </Link>
         {user ? (
           <div className="flex items-center gap-4">
+            <Link href="/settings/profile" className="hidden text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) sm:inline">
+              Profile setup
+            </Link>
             <span className="hidden text-sm text-(--color-text-muted) sm:inline">{user.firstName}</span>
             <Button variant="secondary" onClick={handleSignOut}>
               Sign out

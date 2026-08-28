@@ -4,6 +4,7 @@ import { pgPool } from "../../db/postgres";
 import { env } from "../../config/env";
 import { AuthUser, UserRole } from "../../types";
 import { HttpError } from "../../utils/http-error";
+import * as orgService from "../org/org.service";
 
 const SALT_ROUNDS = 10;
 
@@ -69,6 +70,42 @@ export async function register(input: RegisterInput): Promise<{ token: string; u
   );
 
   const user = toAuthUser(result.rows[0], foodBank.name);
+  return { token: signToken(user), user };
+}
+
+interface RegisterViaInviteInput {
+  token: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
+
+export async function registerViaInvite(
+  input: RegisterViaInviteInput
+): Promise<{ token: string; user: AuthUser }> {
+  const invite = await orgService.getInviteByToken(input.token);
+
+  const existingUser = await pgPool.query("SELECT id FROM users WHERE email = $1", [invite.email]);
+  if (existingUser.rows.length > 0) {
+    throw new HttpError(409, "An account with this email already exists");
+  }
+
+  const foodBank = await pgPool.query("SELECT id, name FROM food_banks WHERE id = $1", [invite.foodBankId]);
+  if (foodBank.rows.length === 0) {
+    throw new HttpError(404, "The inviting organization no longer exists");
+  }
+
+  const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+  const result = await pgPool.query(
+    `INSERT INTO users (email, password_hash, first_name, last_name, role, food_bank_id)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, email, first_name, last_name, role, food_bank_id`,
+    [invite.email, passwordHash, input.firstName, input.lastName, invite.role, invite.foodBankId]
+  );
+
+  await orgService.markInviteAccepted(invite.id);
+
+  const user = toAuthUser(result.rows[0], foodBank.rows[0].name);
   return { token: signToken(user), user };
 }
 

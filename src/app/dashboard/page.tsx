@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import DropZone, { isAccepted } from "@/components/DropZone";
 import Button from "@/components/Button";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { parseFile, rowsToRecords } from "@/lib/parse";
@@ -78,6 +79,17 @@ export default function DashboardPage() {
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [recentUploads, setRecentUploads] = useState<{ id: string; filename: string; row_count: number; uploaded_at: string }[]>([]);
+  const [showSetupBanner, setShowSetupBanner] = useState(false);
+
+  useEffect(() => {
+    if (!user || user.role !== "admin") return;
+    api
+      .getOrgProfile()
+      .then((profile) => setShowSetupBanner(!profile.profileSetupCompleted))
+      .catch(() => {
+        // Non-critical — the profile-setup nudge just won't show if this fails.
+      });
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -154,6 +166,24 @@ export default function DashboardPage() {
       <Navbar />
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
+        {showSetupBanner && (
+          <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-(--color-primary)/30 bg-(--color-primary)/10 px-5 py-3 text-sm">
+            <span className="text-(--color-text)">Finish setting up your organization profile.</span>
+            <div className="flex items-center gap-3">
+              <Link href="/settings/profile" className="font-medium text-(--color-primary) hover:underline">
+                Go to profile setup
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowSetupBanner(false)}
+                className="text-(--color-text-muted) hover:text-(--color-text)"
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
         {showingUpload ? (
           <div>
             <div className="text-center">

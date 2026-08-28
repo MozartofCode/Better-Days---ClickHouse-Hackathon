@@ -8,6 +8,7 @@ import { uploadsRouter } from "./modules/uploads/uploads.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
 import { actionsRouter } from "./modules/actions/actions.routes";
 import { communityRouter } from "./modules/community-data/community.routes";
+import { orgRouter } from "./modules/org/org.routes";
 
 export const app = express();
 
@@ -21,6 +22,7 @@ app.use("/api/uploads", uploadsRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/actions", actionsRouter);
 app.use("/api/community", communityRouter);
+app.use("/api/org", orgRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: "Not found" });
