@@ -11,6 +11,7 @@ import { communityRouter } from "./modules/community-data/community.routes";
 import { oauthRouter } from "./modules/oauth/oauth.routes";
 import { mcpRouter } from "./modules/mcp/mcp.routes";
 import { orgRouter } from "./modules/org/org.routes";
+import { operationsRouter } from "./modules/operations/operations.routes";
 
 export const app = express();
 
@@ -33,6 +34,7 @@ app.use("/api/dashboard", dashboardRouter);
 app.use("/api/actions", actionsRouter);
 app.use("/api/community", communityRouter);
 app.use("/api/org", orgRouter);
+app.use("/api/operations", operationsRouter);
 app.use("/mcp", mcpRouter);
 
 app.use((_req, res) => {
