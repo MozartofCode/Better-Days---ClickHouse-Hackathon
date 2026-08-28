@@ -74,3 +74,13 @@ export function rowsToRecords(headers: string[], rows: string[][]): Record<strin
     return record;
   });
 }
+
+/** Builds a real .xlsx File from headers/rows, so edits made in the confirmation step are what actually gets saved (not the original bytes). */
+export function buildXlsxFile(filename: string, headers: string[], rows: string[][]): File {
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+  const buffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+  const name = filename.toLowerCase().endsWith(".xlsx") ? filename : `${filename}.xlsx`;
+  return new File([buffer], name, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
