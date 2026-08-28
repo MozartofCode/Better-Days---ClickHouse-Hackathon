@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const DEFAULT_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+const DEFAULT_MODEL = "qwen/qwen3.6-27b";
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 const SYSTEM_PROMPT = `You are a data-entry assistant for a food bank. You are given a photo of a paper log, inventory sheet, or sign-in sheet. Read the table in the photo (including handwriting) and return ONLY strict JSON in this exact shape, with no markdown, no commentary, no code fences:

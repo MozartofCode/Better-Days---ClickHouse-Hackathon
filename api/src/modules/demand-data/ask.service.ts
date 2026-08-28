@@ -92,7 +92,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation: {"metric": 
       method: "POST",
       headers: { Authorization: `Bearer ${env.groqApiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         temperature: 0,
         max_tokens: 50,
         messages: [
@@ -195,7 +195,7 @@ ${JSON.stringify(data)}`;
       method: "POST",
       headers: { Authorization: `Bearer ${env.groqApiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         temperature: 0.2,
         max_tokens: 300,
         messages: [
