@@ -7,9 +7,9 @@ endpoints:
       baseURL: "https://api.groq.com/openai/v1"
       models:
         default:
-          - "llama-3.3-70b-versatile"
-          - "meta-llama/llama-4-scout-17b-16e-instruct"
+          - "openai/gpt-oss-120b"
+          - "qwen/qwen3.6-27b"
         fetch: false
       titleConvo: true
-      titleModel: "llama-3.3-70b-versatile"
+      titleModel: "openai/gpt-oss-120b"
       modelDisplayLabel: "Groq"

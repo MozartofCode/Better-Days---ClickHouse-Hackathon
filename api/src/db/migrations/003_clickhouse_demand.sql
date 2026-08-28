@@ -47,4 +47,5 @@ CREATE TABLE IF NOT EXISTS demand_records (
   source_row UInt32,
   ingested_at DateTime DEFAULT now()
 ) ENGINE = MergeTree()
-ORDER BY (food_bank_id, site, record_date);
+ORDER BY (food_bank_id, site, record_date)
+SETTINGS allow_nullable_key = 1;
