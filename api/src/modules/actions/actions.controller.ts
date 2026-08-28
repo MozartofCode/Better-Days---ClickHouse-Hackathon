@@ -11,6 +11,10 @@ const uploadRowsQuery = foodBankNameQuery.extend({
   pageSize: z.coerce.number().int().min(1).max(500).default(50),
 });
 
+const askDemandBody = foodBankNameQuery.extend({
+  question: z.string().min(1, "question is required").max(500),
+});
+
 export async function listFoodBanksHandler(_req: Request, res: Response, next: NextFunction) {
   try {
     const foodBanks = await actionsService.listFoodBanks();
@@ -44,6 +48,23 @@ export async function uploadRowsHandler(req: Request, res: Response, next: NextF
   try {
     const { foodBankName, page, pageSize } = uploadRowsQuery.parse(req.query);
     const result = await actionsService.getUploadRows(foodBankName, req.params.id, page, pageSize);
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export function suggestedDemandQuestionsHandler(_req: Request, res: Response) {
+  res.status(200).json({ questions: actionsService.listSuggestedDemandQuestions() });
+}
+
+// POST (not GET) because LibreChat Actions send the question as a JSON body,
+// and the question text itself shouldn't end up in server access logs via a
+// query string.
+export async function askDemandQuestionHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { foodBankName, question } = askDemandBody.parse(req.body);
+    const result = await actionsService.askDemandQuestion(foodBankName, question);
     res.status(200).json(result);
   } catch (err) {
     next(err);

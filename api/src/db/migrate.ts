@@ -4,7 +4,11 @@ import { pgPool } from "./postgres";
 import { clickhouse } from "./clickhouse";
 
 const POSTGRES_MIGRATIONS = ["001_postgres_init.sql", "002_postgres_community_data.sql"];
-const CLICKHOUSE_MIGRATIONS = ["001_clickhouse_init.sql", "002_clickhouse_community_data.sql"];
+const CLICKHOUSE_MIGRATIONS = [
+  "001_clickhouse_init.sql",
+  "002_clickhouse_community_data.sql",
+  "003_clickhouse_demand.sql",
+];
 
 async function migratePostgres() {
   for (const file of POSTGRES_MIGRATIONS) {

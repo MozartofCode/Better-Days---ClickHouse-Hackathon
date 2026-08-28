@@ -2,6 +2,7 @@ import { pgPool } from "../../db/postgres";
 import { HttpError } from "../../utils/http-error";
 import * as dashboardService from "../dashboard/dashboard.service";
 import * as uploadsService from "../uploads/uploads.service";
+import { askQuestion, SUGGESTED_QUESTIONS } from "../demand-data/ask.service";
 
 export async function listFoodBanks() {
   const result = await pgPool.query("SELECT id, name FROM food_banks ORDER BY name ASC");
@@ -34,4 +35,16 @@ export async function getUploadRows(
 ) {
   const foodBank = await findFoodBankByName(foodBankName);
   return dashboardService.getUploadRows(foodBank.id, uploadId, page, pageSize);
+}
+
+export function listSuggestedDemandQuestions() {
+  return SUGGESTED_QUESTIONS;
+}
+
+// Same query-then-narrate flow as the frontend's Ask Your Data panel
+// (demand-data/ask.service.ts) — lets the standalone LibreChat app answer
+// the same demand questions through its own Actions feature.
+export async function askDemandQuestion(foodBankName: string, question: string) {
+  const foodBank = await findFoodBankByName(foodBankName);
+  return askQuestion(foodBank.id, question);
 }

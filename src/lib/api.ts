@@ -122,4 +122,63 @@ export const api = {
       items: (InventoryItem & { rowNumber: number })[];
     }>(`/api/dashboard/uploads/${id}?pageSize=500`);
   },
+
+  // --- Community/demand data ("Ask Your Data") ---
+  demandUpload(file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    return request<DemandIngestSummary>("/api/demand/ingest", { method: "POST", body: form });
+  },
+  demandIngestJson(filename: string, records: Record<string, unknown>[]) {
+    return request<DemandIngestSummary>("/api/demand/ingest-json", {
+      method: "POST",
+      body: JSON.stringify({ filename, records }),
+    });
+  },
+  demandUploads() {
+    return request<{ uploads: DemandUploadSummary[] }>("/api/demand/uploads");
+  },
+  suggestedDemandQuestions() {
+    return request<{ questions: { metric: DemandMetric; question: string }[] }>("/api/demand/suggested-questions");
+  },
+  askDemandQuestion(question: string) {
+    return request<DemandAskResult>("/api/demand/ask", {
+      method: "POST",
+      body: JSON.stringify({ question }),
+    });
+  },
+  runSuggestedDemandQuestion(metric: DemandMetric) {
+    return request<DemandAskResult>(`/api/demand/ask/${metric}`, { method: "POST" });
+  },
 };
+
+export type DemandMetric = "topSites" | "trend" | "commodities" | "increasing" | "momChange";
+
+export interface DemandIngestSummary {
+  uploadId: string;
+  filename: string;
+  source: "csv" | "xlsx" | "json" | "api";
+  columns: string[];
+  rowCount: number;
+  normalizedCount: number;
+  errorCount: number;
+}
+
+export interface DemandUploadSummary {
+  id: string;
+  filename: string;
+  source: string;
+  columns: string[];
+  row_count: number;
+  normalized_count: number;
+  error_count: number;
+  uploaded_at: string;
+}
+
+export interface DemandAskResult {
+  metric: DemandMetric;
+  label: string;
+  data: unknown;
+  answer: string;
+  narratedByAi: boolean;
+}

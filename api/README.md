@@ -98,6 +98,43 @@ These mirror the dashboard/uploads endpoints above but are auth'd with a shared 
 reading it from a logged-in session — see "LibreChat Integration" below for why and how they're
 used. Not part of the frontend contract; frontend should keep using the JWT-based endpoints above.
 
+### Community/Demand Data
+
+Distinct from the "Community & Demand Data" section below (which is public county-level
+data) — this is a food bank's **own** site-level activity: visits, households served, and
+commodities distributed, by site and date. Backs the frontend's "Ask Your Data" panel.
+
+**`POST /api/demand/ingest`** (auth required) — multipart, field `file`, `.xlsx`/`.xls`/`.csv`.
+→ `201 { uploadId, filename, source, columns, rowCount, normalizedCount, errorCount }`
+
+**`POST /api/demand/ingest-json`** (auth required) — `{ filename?, records: object[] }`, for
+already-structured data (e.g. an API response). Same normalization/storage path as the file upload.
+
+**`GET /api/demand/uploads`** (auth required) → list of this food bank's demand-data uploads.
+
+**`GET /api/demand/uploads/:id/records?page=1&pageSize=50`** (auth required) → normalized,
+paginated records for one upload (provenance: `source_file` + `source_row` on every record).
+
+**`GET /api/demand/suggested-questions`** (auth required) → the fixed list of questions this
+API can answer with a real query (site demand, trend, commodities, increasing-demand sites,
+month-over-month change).
+
+**`POST /api/demand/ask`** (auth required) — `{ question: string }` → classifies the question
+into one of those metrics, runs a real read-only ClickHouse query, and returns
+`{ metric, label, data, answer, narratedByAi }`. `data` is the actual query result (show it in
+the UI so the answer is verifiable); `answer` is a plain-language explanation of `data` — from
+Groq if `GROQ_API_KEY` is set, otherwise a templated sentence built from the same `data`. Either
+way, the numbers in `data` are never touched by an LLM.
+
+**`POST /api/demand/ask/:metric`** (auth required) — runs one metric directly (no question
+classification), for suggested-question buttons in the UI. `:metric` is one of the keys from
+`/suggested-questions`.
+
+Data model (all in ClickHouse — see `003_clickhouse_demand.sql`): raw ingestion (`demand_uploads`,
+`demand_raw_rows` — every uploaded row, verbatim, never rejected) is kept separate from the
+normalized/analytics-ready layer (`demand_records` — only rows with a parseable date and a site
+or commodity) that the query functions in `demand.service.ts` actually read.
+
 ## LibreChat Integration
 
 Lets staff ask natural-language questions in LibreChat ("How many households has Example Food
@@ -130,6 +167,8 @@ and auto-scopes to their food bank.
 - "What food banks are in the system?"
 - "How many households has Example Food Bank served in total?"
 - "List the recent uploads for Example Food Bank."
+- "Which pantry sites had the highest demand this month for Example Food Bank?"
+- "How has demand changed over the last three months for Example Food Bank?"
 
 ## Community & Demand Data
 

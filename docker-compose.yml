@@ -90,6 +90,7 @@ services:
       LIBRECHAT_SERVICE_API_KEY: ${LIBRECHAT_SERVICE_API_KEY:-change_me_to_a_long_random_string}
       FEEDINGAMERICA_API_KEY: ${FEEDINGAMERICA_API_KEY:-}
       FEEDINGAMERICA_BASE_URL: ${FEEDINGAMERICA_BASE_URL:-https://api.parse.bot/scraper/dcbc6656-4d7d-4ca1-bc88-673b8184b594}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
     ports:
       - "${API_PORT:-4000}:4000"
     volumes:

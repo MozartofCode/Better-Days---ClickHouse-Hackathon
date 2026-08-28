@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/upload", label: "Upload" },
   { href: "/dashboard/uploads", label: "Uploaded Files" },
   { href: "/dashboard/chat", label: "Ask Pana" },
+  { href: "/dashboard/ask-your-data", label: "Ask Your Data" },
 ];
 
 export default function Navbar() {

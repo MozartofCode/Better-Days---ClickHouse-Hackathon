@@ -13,6 +13,11 @@ export const env = {
   corsOrigin: process.env.CORS_ORIGIN ?? "*",
   jwtSecret: required("JWT_SECRET", "dev_secret_change_me"),
   libreChatServiceApiKey: required("LIBRECHAT_SERVICE_API_KEY"),
+  // Used server-side only, for the Ask Your Data narration step (demand-data
+  // module). Never sent to the browser. Optional: query results and their
+  // templated summaries still work with this unset — only the plain-language
+  // wording falls back to a template instead of an LLM sentence.
+  groqApiKey: process.env.GROQ_API_KEY ?? "",
 
   postgres: {
     host: required("POSTGRES_HOST", "localhost"),
@@ -26,8 +31,11 @@ export const env = {
   },
 
   clickhouse: {
-    host: required("CLICKHOUSE_HOST", "http://localhost:8123"),
-    database: required("CLICKHOUSE_DB", "foodbank"),
+    // CLICKHOUSE_URL/CLICKHOUSE_DATABASE are the documented names in the
+    // product spec; CLICKHOUSE_HOST/CLICKHOUSE_DB are what the rest of this
+    // repo (docker-compose.yml, .env.example) already uses. Both work.
+    host: process.env.CLICKHOUSE_URL ?? required("CLICKHOUSE_HOST", "http://localhost:8123"),
+    database: process.env.CLICKHOUSE_DATABASE ?? required("CLICKHOUSE_DB", "foodbank"),
     user: required("CLICKHOUSE_USER", "default"),
     password: required("CLICKHOUSE_PASSWORD", "change_me"),
   },

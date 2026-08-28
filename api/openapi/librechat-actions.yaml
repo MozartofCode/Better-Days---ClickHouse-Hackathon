@@ -139,6 +139,74 @@ paths:
                     type: integer
         "404":
           description: Upload or food bank not found
+  /demand/suggested-questions:
+    get:
+      operationId: listSuggestedDemandQuestions
+      summary: List the supported community/demand-data questions
+      description: >
+        Fixed set of questions this API can answer with a real deterministic query
+        (site demand, demand trend, commodities, increasing-demand sites,
+        month-over-month change). Offer these to the user rather than guessing.
+      responses:
+        "200":
+          description: Suggested questions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  questions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        metric:
+                          type: string
+                        question:
+                          type: string
+  /demand/ask:
+    post:
+      operationId: askDemandQuestion
+      summary: Ask a question about a food bank's community/demand data
+      description: >
+        Classifies the question into one of the supported metrics, runs a real
+        read-only ClickHouse query for it, and returns the actual result plus a
+        plain-language explanation of that result. Never invents numbers — if the
+        question doesn't match a supported metric, it says so instead of guessing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [foodBankName, question]
+              properties:
+                foodBankName:
+                  type: string
+                  description: Exact name of the food bank, e.g. "Example Food Bank"
+                question:
+                  type: string
+                  example: Which pantry sites had the highest demand this month?
+      responses:
+        "200":
+          description: The real query result and a plain-language answer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  metric:
+                    type: string
+                  label:
+                    type: string
+                  data:
+                    description: The actual query result the answer is based on.
+                  answer:
+                    type: string
+                  narratedByAi:
+                    type: boolean
+        "404":
+          description: No food bank found with that name
 components:
   securitySchemes:
     ApiKeyAuth:
