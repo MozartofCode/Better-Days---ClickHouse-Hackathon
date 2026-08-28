@@ -23,6 +23,17 @@ export default function Navbar() {
         </Link>
         {user ? (
           <div className="flex items-center gap-4">
+            <nav className="hidden items-center gap-4 sm:flex">
+              <Link href="/dashboard" className="text-sm font-medium text-(--color-text-muted) hover:text-(--color-text)">
+                Inventory
+              </Link>
+              <Link href="/dashboard/uploads" className="text-sm font-medium text-(--color-text-muted) hover:text-(--color-text)">
+                Uploaded Files
+              </Link>
+              <Link href="/dashboard/chat" className="text-sm font-medium text-(--color-text-muted) hover:text-(--color-text)">
+                Ask Pana
+              </Link>
+            </nav>
             <span className="hidden text-sm text-(--color-text-muted) sm:inline">{user.firstName}</span>
             <Button variant="secondary" onClick={handleSignOut}>
               Sign out

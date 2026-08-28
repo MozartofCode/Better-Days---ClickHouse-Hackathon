@@ -110,6 +110,11 @@ export const api = {
       } | null;
     }>("/api/dashboard/summary");
   },
+  listUploads() {
+    return request<{
+      uploads: { id: string; filename: string; columns: string[]; row_count: number; uploaded_at: string }[];
+    }>("/api/uploads");
+  },
   uploadDetail(id: string) {
     return request<{
       upload: { id: string; filename: string; columns: string[]; row_count: number; uploaded_at: string };
