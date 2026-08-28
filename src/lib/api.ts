@@ -1,0 +1,95 @@
+// Thin client for the real backend in api/ (see api/README.md for the full contract).
+
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
+const TOKEN_KEY = "pana_token";
+
+export function getToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
+  const headers = new Headers(init?.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (init?.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const res = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  const isJson = res.headers.get("content-type")?.includes("application/json");
+  const data = isJson ? await res.json().catch(() => null) : null;
+
+  if (!res.ok) {
+    const message = (data && typeof data === "object" && "error" in data && typeof data.error === "string")
+      ? data.error
+      : `Request failed (${res.status})`;
+    throw new ApiError(res.status, message);
+  }
+
+  return data as T;
+}
+
+export interface ApiUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: "admin" | "staff";
+  foodBankId: string;
+  foodBankName: string;
+}
+
+export const api = {
+  register(input: { email: string; password: string; firstName: string; lastName: string; role: "admin" | "staff"; foodBankName: string }) {
+    return request<{ token: string; user: ApiUser }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+  login(input: { email: string; password: string }) {
+    return request<{ token: string; user: ApiUser }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+  me() {
+    return request<{ user: ApiUser }>("/api/auth/me");
+  },
+  uploadFile(file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    return request<{ id: string; filename: string; columns: string[]; rowCount: number }>("/api/uploads", {
+      method: "POST",
+      body: form,
+    });
+  },
+  dashboardSummary() {
+    return request<{
+      totalUploads: number;
+      totalRows: number;
+      lastUploadAt: string | null;
+      recentUploads: { id: string; filename: string; row_count: number; uploaded_at: string }[];
+    }>("/api/dashboard/summary");
+  },
+};

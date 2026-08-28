@@ -10,6 +10,7 @@ import ConfirmMapping from "@/components/ConfirmMapping";
 import ResultsTabs from "@/components/ResultsTabs";
 import Button from "@/components/Button";
 import { useAuth } from "@/lib/auth";
+import { api } from "@/lib/api";
 import { parseFiles } from "@/lib/parse";
 import { mapColumns, buildContract } from "@/lib/mapping";
 import { reconcile } from "@/lib/engines/reconcile";
@@ -33,12 +34,25 @@ export default function DashboardPage() {
   const [lbPerCase, setLbPerCase] = useState(30);
   const [contract, setContract] = useState<Contract | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [recentUploads, setRecentUploads] = useState<{ id: string; filename: string; row_count: number; uploaded_at: string }[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    api
+      .dashboardSummary()
+      .then((summary) => setRecentUploads(summary.recentUploads))
+      .catch(() => {
+        // Dashboard history is a nice-to-have; don't block the upload flow if the API is down.
+      });
+  }, [user]);
 
   const needsCaseInput = mappings.some((m) => m.unitHint === "cases");
 
   async function handleFiles(files: File[]) {
     setUploadError(null);
+    setUploadWarning(null);
 
     if (files.length === 0) return;
 
@@ -63,8 +77,22 @@ export default function DashboardPage() {
       setStep("recognition");
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "We couldn't read one of those files. Please check the format and try again.");
-    } finally {
       setProcessing(false);
+      return;
+    }
+    setProcessing(false);
+
+    const failures: string[] = [];
+    for (const file of files) {
+      try {
+        const saved = await api.uploadFile(file);
+        setRecentUploads((prev) => [{ id: saved.id, filename: saved.filename, row_count: saved.rowCount, uploaded_at: new Date().toISOString() }, ...prev]);
+      } catch {
+        failures.push(file.name);
+      }
+    }
+    if (failures.length > 0) {
+      setUploadWarning(`We reconciled your files, but couldn't save ${failures.join(", ")} to your account. You can still view your results below.`);
     }
   }
 
@@ -128,24 +156,41 @@ export default function DashboardPage() {
             </div>
 
             {processing && <p className="mt-4 text-center text-sm text-(--color-text-muted)">Reading your files…</p>}
+            {uploadWarning && (
+              <p className="mt-4 text-center text-sm text-(--color-error)">{uploadWarning}</p>
+            )}
 
             <div className="mt-10 rounded-2xl border border-(--color-border) bg-(--color-surface) p-6">
               <h2 className="text-sm font-semibold text-(--color-text)">What happens after you upload</h2>
               <ol className="mt-3 space-y-2 text-sm text-(--color-text-muted)">
-                <li>1. We read your files.</li>
-                <li>2. We check the data.</li>
-                <li>3. We create your reconciliation, data-quality results, and report.</li>
+                <li>1. We read your files and create your reconciliation right here in the browser.</li>
+                <li>2. We check the data for quality issues.</li>
+                <li>3. Your files are saved to {user.foodBankName}&apos;s account so your team can see them later.</li>
               </ol>
             </div>
 
             <div className="mt-4 rounded-2xl bg-(--color-primary-soft) p-6">
-              <h2 className="text-sm font-semibold text-(--color-primary)">Your data stays private</h2>
+              <h2 className="text-sm font-semibold text-(--color-primary)">Your data, scoped to your food bank</h2>
               <ul className="mt-3 space-y-1.5 text-sm text-(--color-text)">
-                <li>• Nothing you upload is saved anywhere.</li>
-                <li>• Your raw file data never leaves this browser.</li>
-                <li>• Only column headers and computed totals are ever sent to the API.</li>
+                <li>• Uploaded files are saved to your account so you can revisit them later.</li>
+                <li>• Only your food bank&apos;s staff can see your uploads — never other organizations.</li>
+                <li>• Reconciliation and quality checks run locally in your browser before anything is sent.</li>
               </ul>
             </div>
+
+            {recentUploads.length > 0 && (
+              <div className="mt-4 rounded-2xl border border-(--color-border) bg-(--color-surface) p-6">
+                <h2 className="text-sm font-semibold text-(--color-text)">Recent uploads</h2>
+                <ul className="mt-3 space-y-2 text-sm text-(--color-text-muted)">
+                  {recentUploads.slice(0, 5).map((u) => (
+                    <li key={u.id} className="flex items-center justify-between">
+                      <span>{u.filename}</span>
+                      <span>{u.row_count} rows</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 

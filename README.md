@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pana — Food Bank Reconciliation
 
-## Getting Started
+A pantry-ops app: food banks sign up, upload their inventory/visits/household spreadsheets, get
+an instant reconciliation + data-quality report in the browser, and can revisit past uploads from
+a real account. Two parts live in this repo:
 
-First, run the development server:
+- **`/` (this root)** — the Next.js frontend ("Pana"): sign up/sign in, drag-and-drop upload,
+  column-mapping confirmation, and the reconciliation/variance/exceptions report.
+- **`api/`** — the backend: Node.js + Express + TypeScript, PostgreSQL (users/food banks/auth),
+  ClickHouse (uploaded spreadsheet rows + dashboard aggregation), plus a LibreChat chat-over-data
+  integration and absorbed community/demand-data ingestion. See [`api/README.md`](api/README.md)
+  for the full API contract, endpoints, and setup.
 
+## Running locally
+
+**1. Backend** (Postgres, ClickHouse, LibreChat, API — via Docker):
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env   # edit values as needed
+docker compose up --build
+docker compose exec api npm run migrate   # first run only
 ```
+This starts `postgres` (5432), `clickhouse` (8123/9000), `librechat-mongo`, `librechat` (3080),
+and `api` (4000). Health check: `GET http://localhost:4000/health`.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**2. Frontend** (Next.js):
+```bash
+cp .env.local.example .env.local   # points the frontend at the api above
+npm install
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The frontend talks to the backend over `NEXT_PUBLIC_API_URL` (`.env.local`) for auth, uploads,
+and dashboard history; reconciliation/quality checks themselves still run client-side in the
+browser. See [`api/README.md`](api/README.md) for the full `/api/*` contract.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Stack
+- **Frontend**: Next.js (App Router), React, Tailwind — client-side spreadsheet parsing,
+  column mapping, reconciliation, and data-quality engines.
+- **API**: Node.js + Express + TypeScript.
+- **PostgreSQL**: users, food banks, auth.
+- **ClickHouse**: uploaded spreadsheet row data, dashboard aggregation, community/demand-proxy data.
+- **LibreChat**: chat-over-data interface (runs as its own service, own Mongo).
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Repo layout
+```
+src/            Next.js app (frontend)
+public/
+api/            Backend (Express API) — see api/README.md
+specs/          Product/hackathon specs
+docker-compose.yml
+```

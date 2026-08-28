@@ -23,7 +23,7 @@ export default function Navbar() {
         </Link>
         {user ? (
           <div className="flex items-center gap-4">
-            <span className="hidden text-sm text-(--color-text-muted) sm:inline">{user.name}</span>
+            <span className="hidden text-sm text-(--color-text-muted) sm:inline">{user.firstName}</span>
             <Button variant="secondary" onClick={handleSignOut}>
               Sign out
             </Button>

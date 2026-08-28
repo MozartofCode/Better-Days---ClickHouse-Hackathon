@@ -15,11 +15,11 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const result = signIn(email, password);
+    const result = await signIn(email, password);
     setSubmitting(false);
     if (!result.ok) {
       setError(result.error);

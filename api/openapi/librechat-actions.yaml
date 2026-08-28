@@ -1,0 +1,147 @@
+openapi: 3.0.3
+info:
+  title: FoodBank Data Actions
+  description: >
+    Read-only endpoints for an AI agent to answer questions about a food bank's
+    uploaded spreadsheet data. Every request is scoped to one food bank by name.
+  version: 1.0.0
+servers:
+  - url: http://localhost:4000/api/actions
+    description: Local dev (change host if the API is deployed elsewhere)
+security:
+  - ApiKeyAuth: []
+paths:
+  /food-banks:
+    get:
+      operationId: listFoodBanks
+      summary: List all known food banks
+      description: Use this to confirm the exact name of a food bank before querying its data.
+      responses:
+        "200":
+          description: List of food banks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  foodBanks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+  /dashboard-summary:
+    get:
+      operationId: getDashboardSummary
+      summary: Get aggregate stats for a food bank
+      description: Returns total uploads, total rows, last upload time, and recent uploads.
+      parameters:
+        - name: foodBankName
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Exact name of the food bank, e.g. "Example Food Bank"
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalUploads:
+                    type: integer
+                  totalRows:
+                    type: integer
+                  lastUploadAt:
+                    type: string
+                    nullable: true
+                  recentUploads:
+                    type: array
+                    items:
+                      type: object
+        "404":
+          description: No food bank found with that name
+  /uploads:
+    get:
+      operationId: listUploads
+      summary: List all spreadsheet uploads for a food bank
+      parameters:
+        - name: foodBankName
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of uploads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploads:
+                    type: array
+                    items:
+                      type: object
+        "404":
+          description: No food bank found with that name
+  /uploads/{id}/rows:
+    get:
+      operationId: getUploadRows
+      summary: Get the parsed spreadsheet rows for one upload
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: foodBankName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Upload metadata and its rows
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload:
+                    type: object
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+        "404":
+          description: Upload or food bank not found
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
