@@ -42,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# generated report PDFs (api/src/modules/operations/reports)
+/api/generated-reports/

@@ -40,6 +40,15 @@ export const env = {
     password: required("CLICKHOUSE_PASSWORD", "change_me"),
   },
 
+  groq: {
+    // Optional — recommendation narration falls back to the deterministic
+    // template (recommendations.ts) whenever this is unset. groq.com is
+    // OpenAI-compatible, not xAI's "Grok" — see operations/README.md.
+    apiKey: process.env.GROQ_API_KEY ?? "",
+    baseUrl: process.env.GROQ_BASE_URL ?? "https://api.groq.com/openai/v1",
+    model: process.env.GROQ_MODEL ?? "openai/gpt-oss-120b",
+  },
+
   feedingAmerica: {
     // Not set locally by default — get this from the teammate who owns it
     // (see README "Community & Demand Data"). Only /api/community/food-banks*

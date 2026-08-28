@@ -1,0 +1,16 @@
+Item Name,Category,Quantity,Unit of Measurement,Expiration Date,Storage Location,Source of Item,Date of Entry/Update,Restocking Status,Person Responsible,Handling Instructions Notes
+Canned Green Beans,Canned Goods,48,cans,2027-03-15,Dry Storage A,Food Drive,2026-08-20,In Stock,Denise Carter,Store upright
+Peanut Butter,Canned Goods,12,jars,2026-09-05,Dry Storage A,Donation,2026-08-20,Low Stock,Denise Carter,
+Whole Milk,Dairy,6,gallons,2026-09-01,Refrigerator,Purchase,2026-08-27,In Stock,,
+Frozen Chicken Breast,Meat/Protein,0,lbs,,Freezer,Government Program,2026-08-25,Out of Stock,Marcus Lee,Keep frozen at 0°F
+Rice (bulk),Dry Goods/Grains,150,lbs,2028-01-01,,Food Bank Partner,2026-08-15,In Stock,Marcus Lee,
+Diced Tomatoes,Canned Goods,60,cans,2027-06-01,Dry Storage B,Food Drive,2026-08-22,In Stock,Denise Carter,
+Bread (white loaf),Bakery,20,loaves,2026-09-02,Bakery Shelf,Local Bakery Donation,2026-08-27,Low Stock,Priya Nair,Best consumed within 5 days
+Eggs (dozen),Dairy,15,dozen,2026-09-10,Refrigerator,Purchase,2026-08-26,In Stock,Priya Nair,Keep refrigerated
+Apples,Produce,80,lbs,2026-09-04,Produce Cooler,Local Farm Donation,2026-08-27,In Stock,Marcus Lee,
+Cereal (assorted),Dry Goods/Grains,35,boxes,2027-01-20,Dry Storage A,Donation,2026-08-18,In Stock,Denise Carter,
+Frozen Mixed Vegetables,Produce,25,bags,2027-02-01,Freezer,Government Program,2026-08-25,In Stock,Marcus Lee,Keep frozen
+Canned Tuna,Canned Goods,0,cans,2027-05-01,Dry Storage B,Food Drive,2026-08-19,Out of Stock,Denise Carter,
+Pasta,Dry Goods/Grains,90,boxes,2027-11-30,Dry Storage A,Purchase,2026-08-21,In Stock,Priya Nair,
+Baby Formula,Baby/Infant,8,cans,2026-10-15,Dry Storage C,Donation,2026-08-24,Low Stock,Priya Nair,Check age requirements before distributing
+Ground Beef,Meat/Protein,40,lbs,2026-09-03,Freezer,Government Program,2026-08-26,In Stock,Marcus Lee,Keep frozen at 0°F

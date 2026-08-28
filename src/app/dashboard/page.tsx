@@ -231,9 +231,14 @@ export default function DashboardPage() {
                   <h1 className="text-2xl font-semibold text-(--color-text)">Your inventory</h1>
                   <p className="text-sm text-(--color-text-muted)">From {inventory.source}</p>
                 </div>
-                <Button variant="ghost" onClick={() => setShowUpload(true)}>
-                  Upload a different file
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Link href="/dashboard/operations" className="text-sm font-medium text-(--color-primary) hover:underline">
+                    Operations Intelligence →
+                  </Link>
+                  <Button variant="ghost" onClick={() => setShowUpload(true)}>
+                    Upload a different file
+                  </Button>
+                </div>
               </div>
 
               {uploadWarning && (
