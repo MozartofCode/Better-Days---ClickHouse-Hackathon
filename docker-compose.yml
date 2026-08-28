@@ -54,8 +54,16 @@ services:
       HOST: 0.0.0.0
       PORT: 3080
       MONGO_URI: ${LIBRECHAT_MONGO_URI:-mongodb://librechat-mongo:27017/LibreChat}
+      JWT_SECRET: ${LIBRECHAT_JWT_SECRET:-change_me_to_a_long_random_string}
+      JWT_REFRESH_SECRET: ${LIBRECHAT_JWT_REFRESH_SECRET:-change_me_to_a_long_random_string}
+      CREDS_KEY: ${LIBRECHAT_CREDS_KEY:-}
+      CREDS_IV: ${LIBRECHAT_CREDS_IV:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      ALLOW_REGISTRATION: "true"
     ports:
       - "${LIBRECHAT_PORT:-3080}:3080"
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml:ro
 
   api:
     build:

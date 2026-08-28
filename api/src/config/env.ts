@@ -20,6 +20,9 @@ export const env = {
     database: required("POSTGRES_DB", "foodbank"),
     user: required("POSTGRES_USER", "foodbank"),
     password: required("POSTGRES_PASSWORD", "change_me"),
+    // Hosted Postgres (e.g. Supabase) requires TLS; local Docker Postgres doesn't support it.
+    // Auto-detects Supabase hosts, or set POSTGRES_SSL=true explicitly for other hosted providers.
+    ssl: process.env.POSTGRES_SSL === "true" || /supabase\.co$/.test(process.env.POSTGRES_HOST ?? ""),
   },
 
   clickhouse: {
