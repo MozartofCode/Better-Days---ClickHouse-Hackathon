@@ -26,6 +26,9 @@ export default function Navbar() {
             <Link href="/settings/profile" className="hidden text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) sm:inline">
               Profile setup
             </Link>
+            <Link href="/settings/mcp" className="hidden text-sm font-medium text-(--color-text-muted) hover:text-(--color-text) sm:inline">
+              Connect AI chat
+            </Link>
             <span className="hidden text-sm text-(--color-text-muted) sm:inline">{user.firstName}</span>
             <Button variant="secondary" onClick={handleSignOut}>
               Sign out

@@ -14,6 +14,17 @@ export const env = {
   jwtSecret: required("JWT_SECRET", "dev_secret_change_me"),
   libreChatServiceApiKey: required("LIBRECHAT_SERVICE_API_KEY"),
 
+  mcp: {
+    // Public origin this API is reachable at. Used as the OAuth issuer and
+    // as the RFC 8707 resource identifier tokens are bound to — must match
+    // exactly what MCP clients see (not an internal docker service name).
+    issuerUrl: required("MCP_ISSUER_URL", "http://localhost:4000"),
+    resourceUrl: required("MCP_RESOURCE_URL", "http://localhost:4000/mcp"),
+    accessTokenTtlSeconds: parseInt(process.env.MCP_ACCESS_TOKEN_TTL_SECONDS ?? "900", 10),
+    refreshTokenTtlSeconds: parseInt(process.env.MCP_REFRESH_TOKEN_TTL_SECONDS ?? "2592000", 10),
+    authCodeTtlSeconds: parseInt(process.env.MCP_AUTH_CODE_TTL_SECONDS ?? "120", 10),
+  },
+
   postgres: {
     host: required("POSTGRES_HOST", "localhost"),
     port: parseInt(process.env.POSTGRES_PORT ?? "5432", 10),

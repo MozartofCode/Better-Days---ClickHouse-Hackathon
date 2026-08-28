@@ -54,8 +54,42 @@ services:
       HOST: 0.0.0.0
       PORT: 3080
       MONGO_URI: ${LIBRECHAT_MONGO_URI:-mongodb://librechat-mongo:27017/LibreChat}
+      CONFIG_PATH: /app/librechat.yaml
+      # These are assembled here (docker-compose interpolation supports
+      # concatenation) into whole-value vars that librechat-render-config.js
+      # substitutes into librechat.yaml before LibreChat starts — see that
+      # script for why we render the file ourselves instead of relying on
+      # LibreChat's own ${VAR} resolution.
+      PANA_MCP_URL: ${PANA_API_PUBLIC_URL:-http://localhost:4000}/mcp
+      PANA_AUTHORIZE_URL: ${PANA_API_PUBLIC_URL:-http://localhost:4000}/authorize
+      PANA_TOKEN_URL: ${PANA_API_PUBLIC_URL:-http://localhost:4000}/token
+      PANA_REDIRECT_URI: ${PANA_LIBRECHAT_PUBLIC_URL:-http://localhost:3080}/api/mcp/pana-food-bank/oauth/callback
+      PANA_MCP_CLIENT_ID: ${PANA_MCP_CLIENT_ID}
+      PANA_MCP_CLIENT_SECRET: ${PANA_MCP_CLIENT_SECRET}
+      # LibreChat's own auth/credential-encryption secrets — unrelated to
+      # Pana's JWT_SECRET above, required for LibreChat to boot at all.
+      JWT_SECRET: ${LIBRECHAT_JWT_SECRET:-dev_librechat_jwt_secret_change_me}
+      JWT_REFRESH_SECRET: ${LIBRECHAT_JWT_REFRESH_SECRET:-dev_librechat_jwt_refresh_secret_change_me}
+      # CREDS_KEY/CREDS_IV must be valid hex (AES-256-CBC key/IV) or LibreChat
+      # fails to boot — these dev defaults are throwaway, fixed-length hex.
+      CREDS_KEY: ${LIBRECHAT_CREDS_KEY:-3af8e1c9b6d24f708a1e5c3b9f6d2a704e8c1b5f9a3d6072e4b8c1a5f9d3e6b7}
+      CREDS_IV: ${LIBRECHAT_CREDS_IV:-1e5c3b9f6d2a704e8c1b5f9a3d6072e4}
     ports:
       - "${LIBRECHAT_PORT:-3080}:3080"
+    volumes:
+      - ./librechat.template.yaml:/app/librechat.template.yaml:ro
+      - ./librechat-render-config.js:/app/librechat-render-config.js:ro
+    # Render librechat.yaml from the template (substituting the PANA_* vars
+    # above), then start LibreChat normally. `npm run backend` matches this
+    # image's own default command (see api/index.js in its package.json).
+    command: sh -c "node /app/librechat-render-config.js && npm run backend"
+    # Lets the librechat container resolve "localhost" to the host machine,
+    # so its MCP client reaches the api at the same http://localhost:4000
+    # URL the human's browser uses for the OAuth login redirect (the api
+    # itself may run in Docker or directly on the host via `npm run dev` —
+    # either way it's reachable from the host at that port).
+    extra_hosts:
+      - "localhost:host-gateway"
 
   api:
     build:
@@ -82,6 +116,11 @@ services:
       LIBRECHAT_SERVICE_API_KEY: ${LIBRECHAT_SERVICE_API_KEY:-change_me_to_a_long_random_string}
       FEEDINGAMERICA_API_KEY: ${FEEDINGAMERICA_API_KEY:-}
       FEEDINGAMERICA_BASE_URL: ${FEEDINGAMERICA_BASE_URL:-https://api.parse.bot/scraper/dcbc6656-4d7d-4ca1-bc88-673b8184b594}
+      MCP_ISSUER_URL: ${MCP_ISSUER_URL:-http://localhost:4000}
+      MCP_RESOURCE_URL: ${MCP_RESOURCE_URL:-http://localhost:4000/mcp}
+      MCP_ACCESS_TOKEN_TTL_SECONDS: ${MCP_ACCESS_TOKEN_TTL_SECONDS:-900}
+      MCP_REFRESH_TOKEN_TTL_SECONDS: ${MCP_REFRESH_TOKEN_TTL_SECONDS:-2592000}
+      MCP_AUTH_CODE_TTL_SECONDS: ${MCP_AUTH_CODE_TTL_SECONDS:-120}
     ports:
       - "${API_PORT:-4000}:4000"
     volumes:
