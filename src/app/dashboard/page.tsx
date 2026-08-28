@@ -9,7 +9,6 @@ import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { parseFile, rowsToRecords } from "@/lib/parse";
 import {
-  INVENTORY_FIELDS,
   SAMPLE_INVENTORY_ROWS,
   classifyExpiry,
   classifyStockStatus,
@@ -20,9 +19,9 @@ import {
 
 interface Inventory {
   source: string;
-  uploadedAt: string | null;
+  headers: string[];
+  rows: Record<string, string>[];
   items: InventoryItem[];
-  unmatchedFields: string[];
 }
 
 function summarize(items: InventoryItem[]) {
@@ -41,23 +40,27 @@ function summarize(items: InventoryItem[]) {
     if (status === "low") lowStock++;
     if (status === "out") outOfStock++;
 
-    const category = item.category ?? "Uncategorized";
-    categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1);
+    if (item.category) {
+      categoryCounts.set(item.category, (categoryCounts.get(item.category) ?? 0) + 1);
+    }
   }
 
   const categories = [...categoryCounts.entries()]
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count);
 
-  return { totalItems: items.length, expiringSoon, expired, lowStock, outOfStock, categories };
+  const matched = items.some(
+    (i) => i.itemName || i.category || i.quantity !== null || i.expirationDate || i.restockingStatus
+  );
+
+  return { totalItems: items.length, expiringSoon, expired, lowStock, outOfStock, categories, matched };
 }
 
 function fromFile(name: string, headers: string[], rows: string[][]): Inventory {
   const mapping = mapInventoryColumns(headers);
   const records = rowsToRecords(headers, rows);
   const items = records.map((r) => normalizeInventoryRow(r, mapping));
-  const unmatchedFields = INVENTORY_FIELDS.filter((f) => !mapping[f.key]).map((f) => f.label);
-  return { source: name, uploadedAt: null, items, unmatchedFields };
+  return { source: name, headers, rows: records, items };
 }
 
 export default function DashboardPage() {
@@ -84,13 +87,12 @@ export default function DashboardPage() {
         setRecentUploads(summary.recentUploads);
         if (!summary.currentInventory) return;
         const detail = await api.uploadDetail(summary.currentInventory.fromUpload.id);
-        const mapping = mapInventoryColumns(detail.upload.columns);
         setInventory((prev) =>
           prev ?? {
             source: detail.upload.filename,
-            uploadedAt: detail.upload.uploaded_at,
+            headers: detail.upload.columns,
+            rows: detail.rows.map((r) => r.data),
             items: detail.items,
-            unmatchedFields: INVENTORY_FIELDS.filter((f) => !mapping[f.key]).map((f) => f.label),
           }
         );
       })
@@ -128,7 +130,7 @@ export default function DashboardPage() {
       const saved = await api.uploadFile(file);
       setRecentUploads((prev) => [{ id: saved.id, filename: saved.filename, row_count: saved.rowCount, uploaded_at: new Date().toISOString() }, ...prev]);
     } catch {
-      setUploadWarning(`We read your file, but couldn't save it to your account. You can still view your inventory below.`);
+      setUploadWarning(`We read your file, but couldn't save it to your account. You can still view it below.`);
     }
   }
 
@@ -157,7 +159,7 @@ export default function DashboardPage() {
             <div className="text-center">
               <h1 className="text-2xl font-semibold text-(--color-text)">Upload your inventory</h1>
               <p className="mt-2 text-(--color-text-muted)">
-                Bring the spreadsheet you already have. Missing a column or two? No problem.
+                Bring the spreadsheet you already have, exactly as it is. Any columns work.
               </p>
             </div>
 
@@ -168,18 +170,12 @@ export default function DashboardPage() {
             {processing && <p className="mt-4 text-center text-sm text-(--color-text-muted)">Reading your file…</p>}
 
             <div className="mx-auto mt-10 max-w-xl rounded-2xl border border-(--color-border) bg-(--color-surface) p-6">
-              <h2 className="text-sm font-semibold text-(--color-text)">What we look for</h2>
+              <h2 className="text-sm font-semibold text-(--color-text)">What you&apos;ll see</h2>
               <p className="mt-2 text-sm text-(--color-text-muted)">
-                We match your columns to these fields automatically. Anything we can&apos;t find just shows as
-                empty — it won&apos;t stop your upload.
+                We show your file exactly as you uploaded it — same columns, same values. If we can also
+                recognize things like expiration date or stock status, we&apos;ll add a few quick stats on top,
+                but your data never gets rewritten to fit a template.
               </p>
-              <ul className="mt-3 flex flex-wrap gap-2">
-                {INVENTORY_FIELDS.map((f) => (
-                  <li key={f.key} className="rounded-full bg-(--color-primary-soft) px-3 py-1 text-xs font-medium text-(--color-primary)">
-                    {f.label}
-                  </li>
-                ))}
-              </ul>
             </div>
 
             {recentUploads.length > 0 && (
@@ -214,55 +210,44 @@ export default function DashboardPage() {
                 <p className="mb-4 rounded-lg bg-(--color-error-soft) px-4 py-3 text-sm text-(--color-error)">{uploadWarning}</p>
               )}
 
-              {inventory.unmatchedFields.length > 0 && (
-                <p className="mb-4 rounded-lg bg-(--color-primary-soft) px-4 py-3 text-sm text-(--color-primary)">
-                  We couldn&apos;t find a column for: {inventory.unmatchedFields.join(", ")}. Those will show as
-                  &ldquo;—&rdquo; below.
-                </p>
-              )}
+              {stats.matched && (
+                <>
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <StatTile label="Total rows" value={stats.totalItems} />
+                    <StatTile label="Expiring soon" value={stats.expiringSoon} tone={stats.expiringSoon > 0 ? "warn" : "default"} />
+                    <StatTile label="Low stock" value={stats.lowStock} tone={stats.lowStock > 0 ? "warn" : "default"} />
+                    <StatTile label="Out of stock" value={stats.outOfStock} tone={stats.outOfStock > 0 ? "error" : "default"} />
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <StatTile label="Total items" value={stats.totalItems} />
-                <StatTile label="Expiring soon" value={stats.expiringSoon} tone={stats.expiringSoon > 0 ? "warn" : "default"} />
-                <StatTile label="Low stock" value={stats.lowStock} tone={stats.lowStock > 0 ? "warn" : "default"} />
-                <StatTile label="Out of stock" value={stats.outOfStock} tone={stats.outOfStock > 0 ? "error" : "default"} />
-              </div>
-
-              {stats.categories.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {stats.categories.map((c) => (
-                    <span key={c.name} className="rounded-full border border-(--color-border) bg-(--color-surface) px-3 py-1 text-xs text-(--color-text-muted)">
-                      {c.name} · {c.count}
-                    </span>
-                  ))}
-                </div>
+                  {stats.categories.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {stats.categories.map((c) => (
+                        <span key={c.name} className="rounded-full border border-(--color-border) bg-(--color-surface) px-3 py-1 text-xs text-(--color-text-muted)">
+                          {c.name} · {c.count}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
 
               <div className="mt-6 overflow-x-auto rounded-2xl border border-(--color-border) bg-(--color-surface)">
-                <table className="w-full min-w-[900px] text-left text-sm">
+                <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-(--color-border) text-xs uppercase text-(--color-text-muted)">
-                      <th className="px-4 py-3 font-medium">Item</th>
-                      <th className="px-4 py-3 font-medium">Category</th>
-                      <th className="px-4 py-3 font-medium">Quantity</th>
-                      <th className="px-4 py-3 font-medium">Expiration</th>
-                      <th className="px-4 py-3 font-medium">Location</th>
-                      <th className="px-4 py-3 font-medium">Source</th>
-                      <th className="px-4 py-3 font-medium">Status</th>
-                      <th className="px-4 py-3 font-medium">Responsible</th>
+                      {inventory.headers.map((h) => (
+                        <th key={h} className="whitespace-nowrap px-4 py-3 font-medium">
+                          {h}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {inventory.items.map((item, i) => (
+                    {inventory.rows.map((row, i) => (
                       <tr key={i} className="border-b border-(--color-border) last:border-0">
-                        <Cell value={item.itemName} />
-                        <Cell value={item.category} />
-                        <Cell value={item.quantity !== null ? `${item.quantity}${item.unit ? ` ${item.unit}` : ""}` : null} />
-                        <ExpiryCell value={item.expirationDate} />
-                        <Cell value={item.storageLocation} />
-                        <Cell value={item.source} />
-                        <StatusCell value={item.restockingStatus} />
-                        <Cell value={item.personResponsible} />
+                        {inventory.headers.map((h) => (
+                          <Cell key={h} value={row[h]} />
+                        ))}
                       </tr>
                     ))}
                   </tbody>
@@ -287,42 +272,11 @@ function StatTile({ label, value, tone = "default" }: { label: string; value: nu
   );
 }
 
-function Cell({ value }: { value: string | null }) {
-  return <td className="px-4 py-3 text-(--color-text)">{value ?? <span className="text-(--color-text-muted)">—</span>}</td>;
-}
-
-function ExpiryCell({ value }: { value: string | null }) {
-  const status = classifyExpiry(value);
-  if (!value) return <Cell value={null} />;
-  const badge =
-    status === "expired"
-      ? "bg-(--color-error-soft) text-(--color-error)"
-      : status === "soon"
-        ? "bg-(--color-primary-soft) text-(--color-primary)"
-        : "text-(--color-text)";
+function Cell({ value }: { value: string | undefined }) {
+  const trimmed = value?.trim();
   return (
-    <td className="px-4 py-3">
-      <span className={status !== "ok" && status !== "unknown" ? `rounded-full px-2 py-0.5 text-xs font-medium ${badge}` : "text-(--color-text)"}>
-        {value}
-      </span>
-    </td>
-  );
-}
-
-function StatusCell({ value }: { value: string | null }) {
-  const status = classifyStockStatus(value);
-  if (!value) return <Cell value={null} />;
-  const badge =
-    status === "out"
-      ? "bg-(--color-error-soft) text-(--color-error)"
-      : status === "low"
-        ? "bg-(--color-primary-soft) text-(--color-primary)"
-        : "text-(--color-text)";
-  return (
-    <td className="px-4 py-3">
-      <span className={status === "out" || status === "low" ? `rounded-full px-2 py-0.5 text-xs font-medium ${badge}` : "text-(--color-text)"}>
-        {value}
-      </span>
+    <td className="whitespace-nowrap px-4 py-3 text-(--color-text)">
+      {trimmed ? trimmed : <span className="text-(--color-text-muted)">—</span>}
     </td>
   );
 }

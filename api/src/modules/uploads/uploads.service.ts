@@ -9,6 +9,17 @@ interface ParsedSheet {
   rows: Record<string, string>[];
 }
 
+// Finds the first row that looks like a header row (at least 2 non-empty
+// cells) instead of always assuming row 1 — real-world spreadsheets often
+// have a title row, a blank row, or a leading blank column above the data.
+function findHeaderRowIndex(rows: string[][]): number {
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    const nonEmpty = rows[i].filter((c) => c.trim() !== "");
+    if (nonEmpty.length >= 2) return i;
+  }
+  return 0;
+}
+
 function parseWorkbook(buffer: Buffer): ParsedSheet {
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const sheetName = workbook.SheetNames[0];
@@ -16,23 +27,26 @@ function parseWorkbook(buffer: Buffer): ParsedSheet {
     throw new HttpError(400, "Spreadsheet has no sheets");
   }
   const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+  const raw = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: false, defval: "" });
+  const rows = raw.map((r) => r.map((c) => (c === undefined || c === null ? "" : String(c))));
 
-  if (rows.length === 0) {
+  const headerIdx = findHeaderRowIndex(rows);
+  const columns = rows[headerIdx] ?? [];
+  const dataRows = rows.slice(headerIdx + 1).filter((r) => r.some((c) => c.trim() !== ""));
+
+  if (columns.length === 0 || dataRows.length === 0) {
     throw new HttpError(400, "Spreadsheet has no data rows");
   }
 
-  const columns = Object.keys(rows[0]);
-  const stringRows = rows.map((row) => {
+  const stringRows = dataRows.map((row) => {
     const stringRow: Record<string, string> = {};
-    for (const col of columns) {
-      const value = row[col];
-      stringRow[col] = value === null || value === undefined ? "" : String(value);
-    }
+    columns.forEach((col, i) => {
+      if (col) stringRow[col] = row[i] ?? "";
+    });
     return stringRow;
   });
 
-  return { columns, rows: stringRows };
+  return { columns: columns.filter((c) => c !== ""), rows: stringRows };
 }
 
 interface CreateUploadInput {

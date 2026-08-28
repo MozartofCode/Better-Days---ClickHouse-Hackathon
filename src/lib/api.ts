@@ -113,6 +113,7 @@ export const api = {
   uploadDetail(id: string) {
     return request<{
       upload: { id: string; filename: string; columns: string[]; row_count: number; uploaded_at: string };
+      rows: { row_number: number; data: Record<string, string> }[];
       items: (InventoryItem & { rowNumber: number })[];
     }>(`/api/dashboard/uploads/${id}?pageSize=500`);
   },
