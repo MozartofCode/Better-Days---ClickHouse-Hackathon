@@ -80,6 +80,7 @@ export default function DashboardPage() {
   const [processing, setProcessing] = useState(false);
   const [recentUploads, setRecentUploads] = useState<{ id: string; filename: string; row_count: number; uploaded_at: string }[]>([]);
   const [showSetupBanner, setShowSetupBanner] = useState(false);
+  const [uploadTag, setUploadTag] = useState("");
 
   useEffect(() => {
     if (!user || user.role !== "admin") return;
@@ -139,8 +140,9 @@ export default function DashboardPage() {
     setProcessing(false);
 
     try {
-      const saved = await api.uploadFile(file);
+      const saved = await api.uploadFile(file, uploadTag.trim() || undefined);
       setRecentUploads((prev) => [{ id: saved.id, filename: saved.filename, row_count: saved.rowCount, uploaded_at: new Date().toISOString() }, ...prev]);
+      setUploadTag("");
     } catch {
       setUploadWarning(`We read your file, but couldn't save it to your account. You can still view it below.`);
     }
@@ -194,7 +196,22 @@ export default function DashboardPage() {
             </div>
 
             <div className="mx-auto mt-8 max-w-xl">
+              <label className="mb-1 block text-xs font-medium text-(--color-text-muted)">
+                Tag this upload (optional)
+              </label>
+              <input
+                value={uploadTag}
+                onChange={(e) => setUploadTag(e.target.value)}
+                placeholder="e.g. August Week 1 Count"
+                className="mb-3 w-full rounded-xl border border-(--color-border) bg-(--color-surface) px-4 py-2.5 text-sm text-(--color-text)"
+              />
               <DropZone onFiles={handleFiles} onUseSample={handleUseSample} error={uploadError} />
+              <p className="mt-3 text-center text-xs text-(--color-text-muted)">
+                Uploading a new file doesn&apos;t replace previous ones — every upload is kept and combined.{" "}
+                <Link href="/dashboard/data" className="font-medium text-(--color-primary) hover:underline">
+                  See all uploaded data →
+                </Link>
+              </p>
             </div>
 
             {processing && <p className="mt-4 text-center text-sm text-(--color-text-muted)">Reading your file…</p>}

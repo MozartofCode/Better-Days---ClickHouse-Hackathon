@@ -25,6 +25,7 @@ interface UploadRow {
   columns: string[];
   row_count: number;
   uploaded_at: string;
+  tag: string;
 }
 
 function parseDateOrNull(value: string | null): string | null {
@@ -88,9 +89,18 @@ async function syncOneUpload(foodBankId: string, upload: UploadRow): Promise<num
   await pgPool.query(
     `INSERT INTO data_sources
        (organization_id, source_type, source_name, file_name, import_timestamp,
-        source_row_reference, extraction_confidence)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [foodBankId, UPLOAD_SOURCE_TYPE, upload.filename, upload.filename, upload.uploaded_at, upload.id, confidence]
+        source_row_reference, extraction_confidence, tag)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [
+      foodBankId,
+      UPLOAD_SOURCE_TYPE,
+      upload.filename,
+      upload.filename,
+      upload.uploaded_at,
+      upload.id,
+      confidence,
+      upload.tag || null,
+    ]
   );
 
   return lotsCreated;
@@ -105,7 +115,7 @@ export interface SyncResult {
 // recorded in data_sources rather than re-inserting duplicate lots.
 export async function syncUploadsIntoCanonicalSchema(foodBankId: string): Promise<SyncResult> {
   const uploadsResult = await clickhouse.query({
-    query: `SELECT id, filename, columns, row_count, uploaded_at FROM uploads WHERE food_bank_id = {foodBankId:UUID}`,
+    query: `SELECT id, filename, columns, row_count, uploaded_at, tag FROM uploads WHERE food_bank_id = {foodBankId:UUID}`,
     query_params: { foodBankId },
     format: "JSONEachRow",
   });

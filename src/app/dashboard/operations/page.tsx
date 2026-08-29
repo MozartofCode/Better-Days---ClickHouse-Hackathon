@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Button from "@/components/Button";
 import { useAuth } from "@/lib/auth";
@@ -627,6 +628,9 @@ export default function OperationsDashboardPage() {
                 {dashboard.syncedUploads > 0 && ` — ${dashboard.syncedUploads} upload(s) synced this load`}
               </p>
             )}
+            <Link href="/dashboard/data" className="mt-1 inline-block text-sm font-medium text-(--color-primary) hover:underline">
+              View all data →
+            </Link>
           </div>
           <div className="flex gap-2">
             {REPORT_TEMPLATES.map((t) => (

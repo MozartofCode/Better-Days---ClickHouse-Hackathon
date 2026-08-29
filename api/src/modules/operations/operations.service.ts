@@ -270,11 +270,12 @@ export async function getOrCreateItemId(foodBankId: string, canonicalItemName: s
   return created.rows[0].item_id;
 }
 
-function toDistributionEvent(row: any): DistributionEvent {
+function toDistributionEvent(row: any): DistributionEvent & { siteName: string | null } {
   return {
     distributionEventId: row.distribution_event_id,
     organizationId: row.organization_id,
     siteId: row.site_id,
+    siteName: row.site_name ?? null,
     programId: row.program_id,
     distributionDate: toDateStringOrNull(row.distribution_date) as string,
     startTime: toIsoStringOrNull(row.start_time),
@@ -320,7 +321,7 @@ export interface CreateDistributionEventInput {
   lines?: { itemName: string; unit?: string | null; quantityPlanned?: number | null }[];
 }
 
-export type DistributionEventWithLines = DistributionEvent & { lines: DistributionLine[] };
+export type DistributionEventWithLines = DistributionEvent & { siteName: string | null; lines: DistributionLine[] };
 
 // distribution_events carries organization_id directly, so creation and
 // listing are straightforwardly tenant-scoped (unlike inventory_transactions/
@@ -373,7 +374,10 @@ export async function createDistributionEvent(
 
 export async function listDistributionEvents(foodBankId: string): Promise<DistributionEventWithLines[]> {
   const eventsResult = await pgPool.query(
-    "SELECT * FROM distribution_events WHERE organization_id = $1 ORDER BY distribution_date DESC",
+    `SELECT e.*, s.site_name FROM distribution_events e
+     JOIN sites s ON s.site_id = e.site_id
+     WHERE e.organization_id = $1
+     ORDER BY e.distribution_date DESC`,
     [foodBankId]
   );
   const events = eventsResult.rows.map(toDistributionEvent);
@@ -394,12 +398,13 @@ export async function listDistributionEvents(foodBankId: string): Promise<Distri
   return events.map((e) => ({ ...e, lines: linesByEvent.get(e.distributionEventId) ?? [] }));
 }
 
-function toInventoryTransaction(row: any): InventoryTransaction {
+function toInventoryTransaction(row: any): InventoryTransaction & { itemName: string } {
   return {
     transactionId: row.transaction_id,
     transactionType: row.transaction_type,
     transactionDate: toIsoStringOrNull(row.transaction_date) as string,
     itemId: row.item_id,
+    itemName: row.item_name,
     inventoryLotId: row.inventory_lot_id,
     siteId: row.site_id,
     programId: row.program_id,
@@ -479,9 +484,11 @@ export async function createInventoryTransaction(
   return toInventoryTransaction(result.rows[0]);
 }
 
-export async function listInventoryTransactions(foodBankId: string): Promise<InventoryTransaction[]> {
+export async function listInventoryTransactions(
+  foodBankId: string
+): Promise<(InventoryTransaction & { itemName: string })[]> {
   const result = await pgPool.query(
-    `SELECT t.* FROM inventory_transactions t
+    `SELECT t.*, i.canonical_item_name AS item_name FROM inventory_transactions t
      JOIN items i ON i.item_id = t.item_id
      WHERE i.organization_id = $1
      ORDER BY t.transaction_date DESC`,
@@ -490,10 +497,11 @@ export async function listInventoryTransactions(foodBankId: string): Promise<Inv
   return result.rows.map(toInventoryTransaction);
 }
 
-function toVolunteerShift(row: any): VolunteerShift {
+function toVolunteerShift(row: any): VolunteerShift & { siteName: string | null } {
   return {
     shiftId: row.shift_id,
     siteId: row.site_id,
+    siteName: row.site_name ?? null,
     programId: row.program_id,
     shiftStart: toIsoStringOrNull(row.shift_start) as string,
     shiftEnd: toIsoStringOrNull(row.shift_end) as string,
@@ -546,13 +554,49 @@ export async function createVolunteerShift(
   return toVolunteerShift(result.rows[0]);
 }
 
-export async function listVolunteerShifts(foodBankId: string): Promise<VolunteerShift[]> {
+export async function listVolunteerShifts(
+  foodBankId: string
+): Promise<(VolunteerShift & { siteName: string | null })[]> {
   const result = await pgPool.query(
-    `SELECT sh.* FROM volunteer_shifts sh
+    `SELECT sh.*, s.site_name FROM volunteer_shifts sh
      JOIN sites s ON s.site_id = sh.site_id
      WHERE s.organization_id = $1
      ORDER BY sh.shift_start DESC`,
     [foodBankId]
   );
   return result.rows.map(toVolunteerShift);
+}
+
+export interface DataSourceSummary {
+  sourceId: string;
+  sourceType: string | null;
+  sourceName: string | null;
+  fileName: string | null;
+  tag: string | null;
+  importTimestamp: string;
+  extractionConfidence: number | null;
+}
+
+function toDataSourceSummary(row: any): DataSourceSummary {
+  return {
+    sourceId: row.source_id,
+    sourceType: row.source_type,
+    sourceName: row.source_name,
+    fileName: row.file_name,
+    tag: row.tag,
+    importTimestamp: toIsoStringOrNull(row.import_timestamp) as string,
+    extractionConfidence: row.extraction_confidence === null ? null : Number(row.extraction_confidence),
+  };
+}
+
+// One row per synced upload (see etl.service.ts) — the "where did this data
+// come from" list for the home page. Manual entries (distribution events,
+// inventory transactions, volunteer shifts) aren't uploads and don't create
+// a data_sources row; they're listed separately via their own list* functions.
+export async function listDataSources(foodBankId: string): Promise<DataSourceSummary[]> {
+  const result = await pgPool.query(
+    `SELECT * FROM data_sources WHERE organization_id = $1 ORDER BY import_timestamp DESC`,
+    [foodBankId]
+  );
+  return result.rows.map(toDataSourceSummary);
 }

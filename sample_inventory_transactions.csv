@@ -1,0 +1,8 @@
+transaction_type,item_name,unit,quantity,transaction_date,site,weight_lbs,notes
+opening_balance,Canned Green Beans,cans,200,2026-08-01,Main Site,,Start-of-month count
+receipt,Canned Green Beans,cans,100,2026-08-10,Main Site,,Food drive delivery
+distribution,Canned Green Beans,cans,96,2026-08-30,Main Site,,Matches the planned distribution event
+waste,Canned Green Beans,cans,4,2026-08-15,Main Site,,Damaged in storage
+opening_balance,Diced Tomatoes,cans,180,2026-08-01,Main Site,,Start-of-month count
+receipt,Diced Tomatoes,cans,60,2026-08-12,Main Site,,Food drive delivery
+distribution,Diced Tomatoes,cans,88,2026-08-30,Main Site,,Matches the planned distribution event

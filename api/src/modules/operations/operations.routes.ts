@@ -13,6 +13,7 @@ import {
   createInventoryTransactionHandler,
   listVolunteerShiftsHandler,
   createVolunteerShiftHandler,
+  listDataSourcesHandler,
 } from "./operations.controller";
 
 export const operationsRouter = Router();
@@ -31,3 +32,4 @@ operationsRouter.get("/inventory-transactions", listInventoryTransactionsHandler
 operationsRouter.post("/inventory-transactions", createInventoryTransactionHandler);
 operationsRouter.get("/volunteer-shifts", listVolunteerShiftsHandler);
 operationsRouter.post("/volunteer-shifts", createVolunteerShiftHandler);
+operationsRouter.get("/data-sources", listDataSourcesHandler);
