@@ -35,3 +35,9 @@ mcpServers:
       client_secret: ${PANA_MCP_CLIENT_SECRET}
       redirect_uri: ${PANA_REDIRECT_URI}
       scope: 'mcp:read mcp:write'
+      # Without this, LibreChat defaults to sending client credentials via
+      # HTTP Basic Auth header. The api's /token endpoint (MCP SDK's
+      # authenticateClient middleware) only reads client_id/client_secret
+      # from the POST body, matching the client_secret_post auth method it
+      # was registered with (see README_START.md) — force that explicitly.
+      token_exchange_method: default_post
