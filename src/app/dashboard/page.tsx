@@ -78,9 +78,30 @@ export default function DashboardPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [recentUploads, setRecentUploads] = useState<{ id: string; filename: string; row_count: number; uploaded_at: string }[]>([]);
+  const [recentUploads, setRecentUploads] = useState<{ id: string; filename: string; row_count: number; uploaded_at: string; tag?: string }[]>([]);
   const [showSetupBanner, setShowSetupBanner] = useState(false);
   const [uploadTag, setUploadTag] = useState("");
+  const [selectedUploadId, setSelectedUploadId] = useState<string | null>(null);
+  const [switchingUpload, setSwitchingUpload] = useState(false);
+
+  async function handleSelectUpload(id: string) {
+    setSwitchingUpload(true);
+    try {
+      const detail = await api.uploadDetail(id);
+      setInventory({
+        source: detail.upload.filename,
+        headers: detail.upload.columns,
+        rows: detail.rows.map((r) => r.data),
+        items: detail.items,
+      });
+      setSelectedUploadId(id);
+      setShowUpload(false);
+    } catch {
+      setUploadWarning("Couldn't load that upload. Try again.");
+    } finally {
+      setSwitchingUpload(false);
+    }
+  }
 
   useEffect(() => {
     if (!user || user.role !== "admin") return;
@@ -95,11 +116,18 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     api
+      .listUploads()
+      .then((result) => setRecentUploads(result.uploads.map((u) => ({ ...u, row_count: u.row_count }))))
+      .catch(() => {
+        // Non-critical — the uploads list just won't populate if this fails.
+      });
+    api
       .dashboardSummary()
       .then(async (summary) => {
-        setRecentUploads(summary.recentUploads);
         if (!summary.currentInventory) return;
-        const detail = await api.uploadDetail(summary.currentInventory.fromUpload.id);
+        const uploadId = summary.currentInventory.fromUpload.id;
+        const detail = await api.uploadDetail(uploadId);
+        setSelectedUploadId((prev) => prev ?? uploadId);
         setInventory((prev) =>
           prev ?? {
             source: detail.upload.filename,
@@ -141,7 +169,11 @@ export default function DashboardPage() {
 
     try {
       const saved = await api.uploadFile(file, uploadTag.trim() || undefined);
-      setRecentUploads((prev) => [{ id: saved.id, filename: saved.filename, row_count: saved.rowCount, uploaded_at: new Date().toISOString() }, ...prev]);
+      setRecentUploads((prev) => [
+        { id: saved.id, filename: saved.filename, row_count: saved.rowCount, uploaded_at: new Date().toISOString(), tag: saved.tag },
+        ...prev,
+      ]);
+      setSelectedUploadId(saved.id);
       setUploadTag("");
     } catch {
       setUploadWarning(`We read your file, but couldn't save it to your account. You can still view it below.`);
@@ -227,12 +259,23 @@ export default function DashboardPage() {
 
             {recentUploads.length > 0 && (
               <div className="mx-auto mt-4 max-w-xl rounded-2xl border border-(--color-border) bg-(--color-surface) p-6">
-                <h2 className="text-sm font-semibold text-(--color-text)">Recent uploads</h2>
-                <ul className="mt-3 space-y-2 text-sm text-(--color-text-muted)">
-                  {recentUploads.slice(0, 5).map((u) => (
-                    <li key={u.id} className="flex items-center justify-between">
-                      <span>{u.filename}</span>
-                      <span>{u.row_count} rows</span>
+                <h2 className="text-sm font-semibold text-(--color-text)">
+                  Your uploads <span className="font-normal text-(--color-text-muted)">({recentUploads.length})</span>
+                </h2>
+                <ul className="mt-3 divide-y divide-(--color-border) text-sm">
+                  {recentUploads.map((u) => (
+                    <li key={u.id}>
+                      <button
+                        onClick={() => handleSelectUpload(u.id)}
+                        disabled={switchingUpload}
+                        className="flex w-full items-center justify-between gap-3 py-2 text-left cursor-pointer text-(--color-text) hover:text-(--color-primary) disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <span className="truncate">
+                          {u.filename}
+                          {u.tag && <span className="ml-2 text-xs text-(--color-text-muted)">({u.tag})</span>}
+                        </span>
+                        <span className="shrink-0 text-xs text-(--color-text-muted)">{u.row_count} rows</span>
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -249,6 +292,9 @@ export default function DashboardPage() {
                   <p className="text-sm text-(--color-text-muted)">From {inventory.source}</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  <Link href="/dashboard/data" className="text-sm font-medium text-(--color-primary) hover:underline">
+                    All Data →
+                  </Link>
                   <Link href="/dashboard/operations" className="text-sm font-medium text-(--color-primary) hover:underline">
                     Operations Intelligence →
                   </Link>
@@ -260,6 +306,35 @@ export default function DashboardPage() {
 
               {uploadWarning && (
                 <p className="mb-4 rounded-lg bg-(--color-error-soft) px-4 py-3 text-sm text-(--color-error)">{uploadWarning}</p>
+              )}
+
+              {recentUploads.length > 0 && (
+                <div className="mb-6 rounded-2xl border border-(--color-border) bg-(--color-surface) p-4">
+                  <h2 className="text-sm font-semibold text-(--color-text)">
+                    Your uploads <span className="font-normal text-(--color-text-muted)">({recentUploads.length})</span>
+                  </h2>
+                  <ul className="mt-2 divide-y divide-(--color-border)">
+                    {recentUploads.map((u) => (
+                      <li key={u.id}>
+                        <button
+                          onClick={() => handleSelectUpload(u.id)}
+                          disabled={switchingUpload}
+                          className={`flex w-full items-center justify-between gap-3 py-2 text-left text-sm cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
+                            selectedUploadId === u.id ? "text-(--color-primary)" : "text-(--color-text)"
+                          }`}
+                        >
+                          <span className="truncate">
+                            {u.filename}
+                            {u.tag && <span className="ml-2 text-xs text-(--color-text-muted)">({u.tag})</span>}
+                          </span>
+                          <span className="shrink-0 text-xs text-(--color-text-muted)">
+                            {u.row_count} rows · {new Date(u.uploaded_at).toLocaleDateString()}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
 
               {stats.matched && (
