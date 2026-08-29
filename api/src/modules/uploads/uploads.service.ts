@@ -54,6 +54,7 @@ interface CreateUploadInput {
   uploadedByUserId: string;
   filename: string;
   buffer: Buffer;
+  tag?: string;
 }
 
 export async function createUpload(input: CreateUploadInput) {
@@ -70,6 +71,7 @@ export async function createUpload(input: CreateUploadInput) {
         filename: input.filename,
         columns,
         row_count: rows.length,
+        tag: input.tag ?? "",
       },
     ],
     format: "JSONEachRow",
@@ -99,13 +101,14 @@ export async function createUpload(input: CreateUploadInput) {
     rowCount: rows.length,
     matchedFields,
     unmatchedFields,
+    tag: input.tag ?? "",
   };
 }
 
 export async function listUploads(foodBankId: string) {
   const result = await clickhouse.query({
     query: `
-      SELECT id, filename, columns, row_count, uploaded_at
+      SELECT id, filename, columns, row_count, uploaded_at, tag
       FROM uploads
       WHERE food_bank_id = {foodBankId:UUID}
       ORDER BY uploaded_at DESC

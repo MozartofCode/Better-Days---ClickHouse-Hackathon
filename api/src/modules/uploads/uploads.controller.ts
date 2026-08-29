@@ -8,11 +8,13 @@ export async function uploadHandler(req: Request, res: Response, next: NextFunct
       throw new HttpError(400, "No file uploaded. Send a multipart field named 'file'.");
     }
     const user = req.user!;
+    const tag = typeof req.body?.tag === "string" ? req.body.tag.trim().slice(0, 200) : undefined;
     const result = await uploadsService.createUpload({
       foodBankId: user.foodBankId,
       uploadedByUserId: user.id,
       filename: req.file.originalname,
       buffer: req.file.buffer,
+      tag,
     });
     res.status(201).json(result);
   } catch (err) {

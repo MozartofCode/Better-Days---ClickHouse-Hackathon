@@ -11,6 +11,7 @@ import {
   createInventoryTransaction,
   listVolunteerShifts,
   createVolunteerShift,
+  listDataSources,
 } from "./operations.service";
 import {
   buildDistributionReadinessBriefFromLiveData,
@@ -192,6 +193,15 @@ export async function createVolunteerShiftHandler(req: Request, res: Response, n
   try {
     const shift = await createVolunteerShift(req.user!.foodBankId, req.body ?? {});
     res.status(201).json(shift);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listDataSourcesHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const sources = await listDataSources(req.user!.foodBankId);
+    res.status(200).json(sources);
   } catch (err) {
     next(err);
   }

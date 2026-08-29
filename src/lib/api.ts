@@ -78,9 +78,10 @@ export const api = {
   me() {
     return request<{ user: ApiUser }>("/api/auth/me");
   },
-  uploadFile(file: File) {
+  uploadFile(file: File, tag?: string) {
     const form = new FormData();
     form.append("file", file);
+    if (tag) form.append("tag", tag);
     return request<{
       id: string;
       filename: string;
@@ -88,10 +89,17 @@ export const api = {
       rowCount: number;
       matchedFields: string[];
       unmatchedFields: string[];
+      tag: string;
     }>("/api/uploads", {
       method: "POST",
       body: form,
     });
+  },
+  listUploads() {
+    return request<{ uploads: UploadSummary[] }>("/api/uploads");
+  },
+  listDataSources() {
+    return request<DataSourceSummary[]>("/api/operations/data-sources");
   },
   dashboardSummary() {
     return request<{
@@ -109,11 +117,6 @@ export const api = {
         categories: { name: string; count: number }[];
       } | null;
     }>("/api/dashboard/summary");
-  },
-  listUploads() {
-    return request<{
-      uploads: { id: string; filename: string; columns: string[]; row_count: number; uploaded_at: string }[];
-    }>("/api/uploads");
   },
   uploadDetail(id: string) {
     return request<{
@@ -314,6 +317,25 @@ export interface OperationsDashboard {
   syncedUploads: number;
 }
 
+export interface UploadSummary {
+  id: string;
+  filename: string;
+  columns: string[];
+  row_count: number;
+  uploaded_at: string;
+  tag: string;
+}
+
+export interface DataSourceSummary {
+  sourceId: string;
+  sourceType: string | null;
+  sourceName: string | null;
+  fileName: string | null;
+  tag: string | null;
+  importTimestamp: string;
+  extractionConfidence: number | null;
+}
+
 export interface GeneratedReportRow {
   reportId: string;
   templateId: string;
@@ -359,6 +381,7 @@ export interface DistributionEvent {
   distributionEventId: string;
   organizationId: string;
   siteId: string;
+  siteName: string | null;
   programId: string | null;
   distributionDate: string;
   startTime: string | null;
@@ -392,6 +415,7 @@ export interface InventoryTransaction {
   transactionType: string;
   transactionDate: string;
   itemId: string;
+  itemName: string;
   inventoryLotId: string | null;
   siteId: string;
   programId: string | null;
@@ -427,6 +451,7 @@ export interface CreateInventoryTransactionInput {
 export interface VolunteerShift {
   shiftId: string;
   siteId: string;
+  siteName: string | null;
   programId: string | null;
   shiftStart: string;
   shiftEnd: string;

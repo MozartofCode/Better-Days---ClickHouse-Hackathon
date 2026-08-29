@@ -10,11 +10,13 @@ const POSTGRES_MIGRATIONS = [
   "004_mcp_oauth_schema.sql",
   "005_postgres_org_setup.sql",
   "006_postgres_generated_reports.sql",
+  "007_postgres_data_source_tag.sql",
 ];
 const CLICKHOUSE_MIGRATIONS = [
   "001_clickhouse_init.sql",
   "002_clickhouse_community_data.sql",
   "003_clickhouse_demand.sql",
+  "004_clickhouse_uploads_tag.sql",
 ];
 
 async function migratePostgres() {
